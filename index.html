@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azazel's Razer, LLC — Time Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0e0f; --surface: #161618; --surface2: #1e1e21; --surface3: #26262b;
+    --border: #2e2e34; --border2: #3e3e46; --text: #e8e8ec; --muted: #7a7a86; --dim: #4a4a54;
+    --accent: #7f77dd; --accent-dim: #3c3489;
+    --green: #1d9e75; --green-bright: #5dcaa5;
+    --amber: #ef9f27; --blue: #378add; --blue-bright: #85b7eb; --red: #e24b4a;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; line-height: 1.5; }
+  .shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .sidebar-header { padding: 16px 18px 14px; border-bottom: 1px solid var(--border); }
+  .logo-img { max-width: 100%; height: 100px; object-fit: contain; display: block; margin-bottom: 6px; }
+  .logo-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .sidebar-actions { display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .new-project-btn { flex: 1; padding: 7px 10px; background: var(--accent-dim); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; cursor: pointer; text-transform: uppercase; transition: background .15s; text-align: left; }
+  .new-project-btn:hover { background: var(--accent); }
+  .settings-btn { padding: 7px 10px; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; font-size: 14px; cursor: pointer; transition: all .15s; }
+  .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .project-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .project-item { padding: 10px 18px; cursor: pointer; border-left: 2px solid transparent; transition: all .1s; }
+  .project-item:hover { background: var(--surface2); }
+  .project-item.active { background: var(--surface2); border-left-color: var(--accent); }
+  .project-item.has-active { border-left-color: var(--green-bright); }
+  .proj-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .proj-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .proj-indicator { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green-bright); margin-right: 5px; animation: pulse 1.5s infinite; vertical-align: 1px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .main { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-shrink: 0; }
+  .project-title { font-size: 18px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .project-scope { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn { padding: 7px 14px; border-radius: 4px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; cursor: pointer; transition: all .15s; text-transform: uppercase; }
+  .btn:hover { background: var(--surface3); border-color: var(--accent); }
+  .btn-danger { border-color: #3e1e1e; color: var(--red); }
+  .btn-danger:hover { background: rgba(226,75,74,.1); border-color: var(--red); }
+
+  .clock-area { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .clock-track { background: var(--bg); padding: 14px 18px; display: flex; align-items: flex-start; gap: 14px; }
+  .punch-btn { width: 68px; height: 68px; border-radius: 50%; border: 2px solid var(--border2); background: var(--surface2); color: var(--muted); font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex-shrink: 0; }
+  .punch-btn svg { width: 20px; height: 20px; }
+  .punch-btn.design:hover  { border-color: var(--accent); background: rgba(127,119,221,.1); color: var(--accent); }
+  .punch-btn.design.active { border-color: var(--accent); background: rgba(127,119,221,.15); color: var(--accent); box-shadow: 0 0 0 4px rgba(127,119,221,.08); }
+  .punch-btn.design.active:hover { border-color: var(--red); background: rgba(226,75,74,.1); color: var(--red); box-shadow: none; }
+  .punch-btn.fdm:hover     { border-color: var(--green-bright); background: rgba(29,158,117,.1); color: var(--green-bright); }
+  .punch-btn.fdm.active    { border-color: var(--green-bright); background: rgba(29,158,117,.15); color: var(--green-bright); box-shadow: 0 0 0 4px rgba(29,158,117,.08); }
+  .punch-btn.fdm.active:hover { border-color: var(--red); background: rgba(226,75,74,.1); color: var(--red); box-shadow: none; }
+  .punch-btn.resin:hover   { border-color: var(--blue-bright); background: rgba(55,138,221,.1); color: var(--blue-bright); }
+  .punch-btn.resin.active  { border-color: var(--blue-bright); background: rgba(55,138,221,.15); color: var(--blue-bright); box-shadow: 0 0 0 4px rgba(55,138,221,.08); }
+  .punch-btn.resin.active:hover { border-color: var(--red); background: rgba(226,75,74,.1); color: var(--red); box-shadow: none; }
+
+  .track-info { flex: 1; min-width: 0; }
+  .track-label { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 1px; }
+  .track-label.design-label { color: var(--accent); }
+  .track-label.fdm-label    { color: var(--green-bright); }
+  .track-label.resin-label  { color: var(--blue-bright); }
+  .track-rate { font-family: var(--mono); font-size: 9px; color: var(--dim); margin-bottom: 5px; }
+  .live-timer { font-family: var(--mono); font-size: 24px; font-weight: 600; line-height: 1; margin-bottom: 3px; }
+  .live-timer.design-timer { color: var(--accent); }
+  .live-timer.fdm-timer    { color: var(--green-bright); }
+  .live-timer.resin-timer  { color: var(--blue-bright); }
+  .clock-status { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .clock-status.active-design { color: var(--accent); }
+  .clock-status.active-fdm   { color: var(--green-bright); }
+  .clock-status.active-resin { color: var(--blue-bright); }
+  .punch-since { font-family: var(--mono); font-size: 9px; color: var(--dim); margin-top: 3px; }
+  .manual-link { font-family: var(--mono); font-size: 9px; color: var(--dim); cursor: pointer; background: none; border: none; padding: 0; margin-top: 4px; display: block; letter-spacing: .05em; transition: color .15s; }
+  .manual-link:hover { color: var(--amber); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .stat-cell { background: var(--surface); padding: 10px 14px; }
+  .stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-family: var(--mono); font-size: 16px; font-weight: 600; line-height: 1; }
+  .stat-sub   { font-family: var(--mono); font-size: 9px; color: var(--dim); margin-top: 3px; }
+  .stat-value.design-val { color: var(--accent); }
+  .stat-value.fdm-val    { color: var(--green-bright); }
+  .stat-value.resin-val  { color: var(--blue-bright); }
+  .stat-value.total-val  { color: #fff; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; flex: 1; gap: 1px; background: var(--border); overflow: hidden; min-height: 0; }
+  .panel { background: var(--bg); overflow-y: auto; padding: 14px 16px; }
+  .panel-title { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .panel-title.design-title  { color: var(--accent); }
+  .panel-title.fdm-title     { color: var(--green-bright); }
+  .panel-title.resin-title   { color: var(--blue-bright); }
+  .panel-title.receipt-title { color: var(--amber); }
+
+  .session-entry { padding: 6px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 10px; }
+  .session-entry:last-child { border-bottom: none; }
+  .session-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px; align-items: center; }
+  .session-time { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+  .session-dur  { color: var(--text); white-space: nowrap; font-size: 11px; }
+  .session-bill { white-space: nowrap; text-align: right; font-size: 14px; font-weight: 600; }
+  .session-bill.design-bill { color: var(--accent); }
+  .session-bill.fdm-bill    { color: var(--green-bright); }
+  .session-bill.resin-bill  { color: var(--blue-bright); }
+  .session-delete { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 12px; padding: 0 1px; line-height: 1; }
+  .session-delete:hover { color: var(--red); }
+  .session-mat { color: var(--amber); font-size: 9px; margin-top: 3px; display: flex; justify-content: space-between; align-items: center; padding-left: 2px; }
+  .session-mat-edit { background: none; border: none; color: var(--dim); font-family: var(--mono); font-size: 9px; cursor: pointer; text-decoration: underline; padding: 0; }
+  .session-mat-edit:hover { color: var(--amber); }
+  .session-manual-tag { font-family: var(--mono); font-size: 8px; color: var(--dim); border: 1px solid var(--dim); border-radius: 2px; padding: 0 3px; margin-left: 4px; vertical-align: middle; }
+  .empty-state { font-size: 11px; color: var(--dim); font-family: var(--mono); padding: 10px 0; }
+
+  .receipt-add { display: grid; grid-template-columns: 1fr 68px auto; gap: 5px; margin-bottom: 10px; align-items: end; }
+  .field-group { display: flex; flex-direction: column; gap: 3px; }
+  .field-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  input[type="text"], input[type="number"] { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 11px; padding: 5px 7px; outline: none; transition: border-color .15s; width: 100%; }
+  input[type="text"]:focus, input[type="number"]:focus { border-color: var(--amber); }
+  input[type="date"] { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 11px; padding: 5px 7px; outline: none; transition: border-color .15s; width: 100%; color-scheme: dark; }
+  input[type="date"]:focus { border-color: var(--amber); }
+  .btn-export { border-color: rgba(239,159,39,.4); color: var(--amber); }
+  .btn-export:hover { background: rgba(239,159,39,.1); border-color: var(--amber); }
+  select { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 11px; padding: 5px 7px; outline: none; width: 100%; cursor: pointer; transition: border-color .15s; }
+  select:focus { border-color: var(--amber); }
+  textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--sans); font-size: 13px; padding: 6px 10px; outline: none; resize: vertical; min-height: 60px; width: 100%; transition: border-color .15s; }
+  textarea:focus { border-color: var(--accent); }
+  .btn-add { padding: 5px 8px; background: rgba(239,159,39,.12); border: 1px solid var(--amber); border-radius: 4px; color: var(--amber); font-family: var(--mono); font-size: 10px; cursor: pointer; white-space: nowrap; transition: background .15s; }
+  .btn-add:hover { background: rgba(239,159,39,.28); }
+  .receipt-entry { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--border); align-items: center; font-family: var(--mono); font-size: 11px; }
+  .receipt-entry:last-child { border-bottom: none; }
+  .receipt-desc   { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .receipt-amount { color: var(--amber); text-align: right; white-space: nowrap; }
+  .receipt-delete, .type-del-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 12px; padding: 0 2px; }
+  .receipt-delete:hover, .type-del-btn:hover { color: var(--red); }
+  .receipt-total { display: flex; justify-content: space-between; padding: 8px 0 0; margin-top: 4px; border-top: 1px solid var(--border2); font-family: var(--mono); font-size: 11px; }
+  .receipt-total-label { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-size: 9px; }
+  .receipt-total-val { color: var(--amber); font-weight: 600; }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 6px; padding: 24px; width: 500px; max-width: 94vw; max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
+  .modal-title.fdm-color    { color: var(--green-bright); }
+  .modal-title.resin-color  { color: var(--blue-bright); }
+  .modal-title.manual-design { color: var(--accent); }
+  .modal-title.manual-fdm   { color: var(--green-bright); }
+  .modal-title.manual-resin { color: var(--blue-bright); }
+  .form-row { margin-bottom: 14px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .form-label { display: block; font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+  .form-hint { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 5px; }
+  .form-hint.preview { color: var(--amber); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .btn-create { padding: 7px 14px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: background .15s; }
+  .btn-create:hover { background: var(--accent); }
+  .btn-skip { padding: 7px 14px; background: none; border: 1px solid var(--border2); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; }
+  .btn-skip:hover { border-color: var(--text); color: var(--text); }
+
+  .settings-section { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: 10px; margin-bottom: 10px; }
+  .settings-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .settings-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .type-list { margin-bottom: 8px; min-height: 20px; }
+  .type-row { display: grid; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
+  .type-row.filament-row { grid-template-columns: 1fr 72px auto; gap: 6px; }
+  .type-row.resin-row    { grid-template-columns: 1fr 60px 58px auto; gap: 6px; }
+  .type-row-name    { color: var(--text); }
+  .type-row-cost    { color: var(--green-bright); text-align: right; font-size: 10px; }
+  .type-row-density { color: var(--blue-bright); text-align: right; font-size: 10px; }
+  .type-add-row { display: grid; gap: 5px; margin-top: 6px; }
+  .type-add-row.filament-add { grid-template-columns: 1fr 72px auto; }
+  .type-add-row.resin-add    { grid-template-columns: 1fr 60px 58px auto; }
+  .type-add-btn { padding: 4px 8px; background: none; border: 1px solid var(--border2); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; white-space: nowrap; transition: all .15s; }
+  .type-add-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .col-header { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: right; padding-bottom: 4px; }
+  .col-header:first-child { text-align: left; }
+
+  .empty-main { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: var(--dim); font-family: var(--mono); font-size: 13px; }
+  .empty-main svg { width: 40px; height: 40px; stroke: var(--dim); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="ARLogo-FullTrans.png" alt="Azazel's Razer, LLC" class="logo-img">
+      <div class="logo-sub">Time Tracker v5.0</div>
+    </div>
+    <div class="sidebar-actions">
+      <button class="new-project-btn" onclick="openNewProject()">+ New Project</button>
+      <button class="settings-btn" onclick="openSettings()" title="Rates & Settings">⚙</button>
+    </div>
+    <div class="project-list" id="projectList"></div>
+  </aside>
+
+  <div class="main">
+    <div class="empty-main" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+      </svg>
+      <span>Select a project or create one</span>
+    </div>
+
+    <div id="projectView" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+      <div class="topbar">
+        <div style="min-width:0;flex:1;">
+          <div class="project-title" id="viewTitle"></div>
+          <div class="project-scope" id="viewScope"></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn" onclick="editProject()">Edit</button>
+          <button class="btn btn-export" onclick="openExportModal()">Export Invoice</button>
+          <button class="btn btn-danger" onclick="deleteProject()">Delete</button>
+        </div>
+      </div>
+
+      <div class="clock-area">
+        <div class="clock-track">
+          <button class="punch-btn design" id="designBtn" onclick="togglePunch('design')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            <span id="designLabel">Design</span>
+          </button>
+          <div class="track-info">
+            <div class="track-label design-label">Design Time</div>
+            <div class="track-rate" id="designRateLabel"></div>
+            <div class="live-timer design-timer" id="designTimer">00:00:00</div>
+            <div class="clock-status" id="designStatus">Not clocked in</div>
+            <div class="punch-since" id="designSince"></div>
+            <button class="manual-link" onclick="openManual('design')">＋ log manual time</button>
+          </div>
+        </div>
+        <div class="clock-track">
+          <button class="punch-btn fdm" id="fdmBtn" onclick="togglePunch('fdm')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            <span id="fdmLabel">FDM</span>
+          </button>
+          <div class="track-info">
+            <div class="track-label fdm-label">FDM Printer</div>
+            <div class="track-rate" id="fdmRateLabel"></div>
+            <div class="live-timer fdm-timer" id="fdmTimer">00:00:00</div>
+            <div class="clock-status" id="fdmStatus">Not running</div>
+            <div class="punch-since" id="fdmSince"></div>
+            <button class="manual-link" onclick="openManual('fdm')">＋ log manual time</button>
+          </div>
+        </div>
+        <div class="clock-track">
+          <button class="punch-btn resin" id="resinBtn" onclick="togglePunch('resin')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+            </svg>
+            <span id="resinLabel">Resin</span>
+          </button>
+          <div class="track-info">
+            <div class="track-label resin-label">Resin Printer</div>
+            <div class="track-rate" id="resinRateLabel"></div>
+            <div class="live-timer resin-timer" id="resinTimer">00:00:00</div>
+            <div class="clock-status" id="resinStatus">Not running</div>
+            <div class="punch-since" id="resinSince"></div>
+            <button class="manual-link" onclick="openManual('resin')">＋ log manual time</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-cell">
+          <div class="stat-label">Design Labor</div>
+          <div class="stat-value design-val" id="statDesignCost">$0.00</div>
+          <div class="stat-sub" id="statDesignHrs">0.00 hrs</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">FDM Machine</div>
+          <div class="stat-value fdm-val" id="statFdmTime">$0.00</div>
+          <div class="stat-sub" id="statFdmHrs">0.00 hrs</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">FDM Filament</div>
+          <div class="stat-value fdm-val" id="statFdmMat">$0.00</div>
+          <div class="stat-sub" id="statFdmGrams">0g logged</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Resin Machine</div>
+          <div class="stat-value resin-val" id="statResinTime">$0.00</div>
+          <div class="stat-sub" id="statResinHrs">0.00 hrs</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Resin Material</div>
+          <div class="stat-value resin-val" id="statResinMat">$0.00</div>
+          <div class="stat-sub" id="statReceiptsLine">Receipts: $0.00</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Project Total</div>
+          <div class="stat-value total-val" id="statTotal">$0.00</div>
+          <div class="stat-sub">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="panels">
+        <div class="panel">
+          <div class="panel-title design-title"><span>Design Sessions</span><span id="designCount" style="color:var(--dim)">0</span></div>
+          <div id="designLog"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title fdm-title"><span>FDM Sessions</span><span id="fdmCount" style="color:var(--dim)">0</span></div>
+          <div id="fdmLog"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title resin-title"><span>Resin Sessions</span><span id="resinCount" style="color:var(--dim)">0</span></div>
+          <div id="resinLog"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title receipt-title"><span>Receipts / Expenses</span></div>
+          <div class="receipt-add">
+            <div class="field-group">
+              <label class="field-label">Description</label>
+              <input type="text" id="receiptDesc" placeholder="LEDs, hardware…" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">$</label>
+              <input type="number" id="receiptAmt" placeholder="0.00" step="0.01" />
+            </div>
+            <button class="btn-add" onclick="addReceipt()">+ Add</button>
+          </div>
+          <div id="receiptLog"></div>
+          <div class="receipt-total" id="receiptTotalRow" style="display:none">
+            <span class="receipt-total-label">Total Expenses</span>
+            <span class="receipt-total-val" id="receiptTotalVal">$0.00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div class="modal-backdrop" id="exportModal">
+  <div class="modal" style="width:540px;">
+    <div class="modal-title" style="color:var(--amber);">Export Invoice — <span id="exportModalProjectName"></span></div>
+    <div class="form-row">
+      <label class="form-label">Bill To</label>
+      <textarea id="exportBillTo" placeholder="Client name&#10;Address&#10;City, State  ZIP" style="min-height:72px;"></textarea>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Invoice #</label><input type="text" id="exportInvoiceNum" /></div>
+      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="1.5" step="0.1" min="0" /></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Invoice Date</label><input type="date" id="exportDate" /></div>
+      <div><label class="form-label">Due Date</label><input type="date" id="exportDueDate" /></div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notes (optional)</label>
+      <textarea id="exportNotes" placeholder="Payment terms, contact info, etc." style="min-height:52px;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('exportModal')">Cancel</button>
+      <button class="btn-create" onclick="generateInvoice(false)">Export — Actual</button>
+      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Export — + Markup</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-backdrop" id="projectModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">New Project</div>
+    <div class="form-row">
+      <label class="form-label">Project Name</label>
+      <input type="text" id="modalName" placeholder="Client / project title" />
+    </div>
+    <div class="form-row">
+      <label class="form-label">Scope / Notes</label>
+      <textarea id="modalScope" placeholder="Deliverables, client details, etc."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('projectModal')">Cancel</button>
+      <button class="btn-create" id="modalSaveBtn" onclick="saveProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL TIME MODAL -->
+<div class="modal-backdrop" id="manualModal">
+  <div class="modal">
+    <div class="modal-title" id="manualModalTitle">Log Manual Time</div>
+    <p style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:14px;">Creates a completed session ending right now, starting N hours/minutes ago.</p>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Hours</label>
+        <input type="number" id="manualHours" min="0" step="1" placeholder="0" oninput="updateManualPreview()" />
+      </div>
+      <div>
+        <label class="form-label">Minutes</label>
+        <input type="number" id="manualMinutes" min="0" max="59" step="1" placeholder="0" oninput="updateManualPreview()" />
+      </div>
+    </div>
+    <div class="form-hint preview" id="manualPreview"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('manualModal')">Cancel</button>
+      <button class="btn-create" onclick="saveManualTime()">Log Time</button>
+    </div>
+  </div>
+</div>
+
+<!-- MATERIAL MODAL -->
+<div class="modal-backdrop" id="materialModal">
+  <div class="modal">
+    <div class="modal-title" id="materialModalTitle">Log Material Used</div>
+    <!-- FDM -->
+    <div id="fdmMatForm" style="display:none">
+      <div class="form-row">
+        <label class="form-label">Filament Type</label>
+        <select id="matFilamentType" onchange="onFilamentTypeChange()"></select>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="form-label">Cost ($/kg)</label>
+          <input type="number" id="matFilamentCostPerKg" step="0.50" min="0" placeholder="0.00" oninput="updateFdmPreview()" />
+        </div>
+        <div>
+          <label class="form-label">Grams Used</label>
+          <input type="number" id="matGrams" step="0.01" min="0" placeholder="0.00" oninput="updateFdmPreview()" />
+        </div>
+      </div>
+      <div class="form-hint preview" id="fdmCostPreview"></div>
+      <div class="form-hint" id="matMachineHint" style="margin-top:4px;"></div>
+    </div>
+    <!-- Resin -->
+    <div id="resinMatForm" style="display:none">
+      <div class="form-row">
+        <label class="form-label">Resin Type</label>
+        <select id="matResinType" onchange="onResinTypeChange()"></select>
+      </div>
+      <div class="form-row-3">
+        <div>
+          <label class="form-label">Volume (mL)</label>
+          <input type="number" id="matResinMl" step="0.1" min="0" placeholder="0.0" oninput="updateResinPreview()" />
+        </div>
+        <div>
+          <label class="form-label">Cost ($/kg)</label>
+          <input type="number" id="matResinCostPerKg" step="0.50" min="0" placeholder="0.00" oninput="updateResinPreview()" />
+        </div>
+        <div>
+          <label class="form-label">Density (g/mL)</label>
+          <input type="number" id="matResinDensity" step="0.01" min="0" placeholder="1.10" oninput="updateResinPreview()" />
+        </div>
+      </div>
+      <div class="form-hint preview" id="resinCostPreview"></div>
+      <div class="form-hint" id="resinMachineHint" style="margin-top:4px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-skip" onclick="skipMaterial()">Skip</button>
+      <button class="btn-create" id="matSaveBtn" onclick="saveMaterial()">Log Material</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal-title">Rates &amp; Settings</div>
+
+    <div class="settings-section">Hourly Rates</div>
+    <div class="settings-2col">
+      <div class="form-row">
+        <label class="form-label">Design Labor ($/hr)</label>
+        <input type="number" id="setLaborRate" step="0.50" min="0" />
+      </div>
+      <div></div>
+      <div class="form-row">
+        <label class="form-label">FDM Machine ($/hr)</label>
+        <input type="number" id="setFdmRate" step="0.25" min="0" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Resin Machine ($/hr)</label>
+        <input type="number" id="setResinRate" step="0.25" min="0" />
+      </div>
+    </div>
+
+    <div class="settings-section">Filament Types &amp; Costs</div>
+    <div style="display:grid;grid-template-columns:1fr 72px 24px;gap:6px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">$/kg</span><span></span>
+    </div>
+    <div class="type-list" id="filamentTypesList"></div>
+    <div class="type-add-row filament-add">
+      <input type="text" id="newFilamentName" placeholder="e.g. CF-PLA" />
+      <input type="number" id="newFilamentCost" placeholder="$/kg" step="0.50" min="0" style="width:100%;" />
+      <button class="type-add-btn" onclick="addFilamentType()">+</button>
+    </div>
+
+    <div class="settings-section">Resin Types, Costs &amp; Density</div>
+    <div style="display:grid;grid-template-columns:1fr 60px 58px 24px;gap:6px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">$/kg</span><span class="col-header">g/mL</span><span></span>
+    </div>
+    <div class="type-list" id="resinTypesList"></div>
+    <div class="type-add-row resin-add">
+      <input type="text" id="newResinName" placeholder="e.g. Flexible" />
+      <input type="number" id="newResinCost" placeholder="$/kg" step="0.50" min="0" style="width:100%;" />
+      <input type="number" id="newResinDensity" placeholder="g/mL" step="0.01" min="0" style="width:100%;" />
+      <button class="type-add-btn" onclick="addResinType()">+</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
+      <button class="btn-create" onclick="saveSettingsModal()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DEFAULTS ──────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS = {
+  laborRate: 40, fdmRate: 5, resinRate: 2,
+  filamentTypes: [
+    {name:'PLA',  costPerKg:20}, {name:'PLA+', costPerKg:25},
+    {name:'Wood', costPerKg:32}, {name:'TPU',  costPerKg:38},
+    {name:'ASA',  costPerKg:28}, {name:'ABS',  costPerKg:22}
+  ],
+  resinTypes: [
+    {name:'Standard',       costPerKg:13, densityGPerMl:1.10},
+    {name:'ABS-Like',       costPerKg:17, densityGPerMl:1.15},
+    {name:'High-Toughness', costPerKg:24, densityGPerMl:1.12},
+    {name:'Nylon-Like',     costPerKg:30, densityGPerMl:1.12},
+    {name:'High-Clear',     costPerKg:36, densityGPerMl:1.10},
+    {name:'Flexible',       costPerKg:31, densityGPerMl:1.15},
+    {name:'High-Temp 300C', costPerKg:60, densityGPerMl:1.18}
+  ]
+};
+
+let settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+let data = { projects: [] };
+let activeProject = null;
+let timerInterval = null;
+let editingId = null;
+let pendingMaterial = null;
+let manualType = null;
+
+// ── SETTINGS ──────────────────────────────────────────────────────────
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('ar_tracker_settings');
+    if (raw) {
+      const saved = JSON.parse(raw);
+      settings = { ...DEFAULT_SETTINGS, ...saved };
+      if (!settings.filamentTypes) settings.filamentTypes = DEFAULT_SETTINGS.filamentTypes;
+      // migrate old string-based resinTypes
+      if (!settings.resinTypes || !settings.resinTypes.length) {
+        settings.resinTypes = DEFAULT_SETTINGS.resinTypes;
+      } else if (typeof settings.resinTypes[0] === 'string') {
+        settings.resinTypes = settings.resinTypes.map(name => {
+          const def = DEFAULT_SETTINGS.resinTypes.find(r => r.name === name);
+          return def || {name, costPerKg:20, densityGPerMl:1.10};
+        });
+      }
+    }
+  } catch {}
+}
+function persistSettings() { localStorage.setItem('ar_tracker_settings', JSON.stringify(settings)); }
+function updateRateLabels() {
+  document.getElementById('designRateLabel').textContent = '$'+settings.laborRate+'/hr labor';
+  document.getElementById('fdmRateLabel').textContent    = '$'+settings.fdmRate+'/hr machine';
+  document.getElementById('resinRateLabel').textContent  = '$'+settings.resinRate+'/hr machine';
+}
+function openSettings() {
+  document.getElementById('setLaborRate').value = settings.laborRate;
+  document.getElementById('setFdmRate').value   = settings.fdmRate;
+  document.getElementById('setResinRate').value = settings.resinRate;
+  renderFilamentTypesList();
+  renderResinTypesList();
+  document.getElementById('settingsModal').classList.add('open');
+}
+function renderFilamentTypesList() {
+  const el = document.getElementById('filamentTypesList');
+  if (!settings.filamentTypes.length) { el.innerHTML='<div class="empty-state">None defined.</div>'; return; }
+  el.innerHTML = settings.filamentTypes.map((ft,i) =>
+    `<div class="type-row filament-row">
+      <span class="type-row-name">${esc(ft.name)}</span>
+      <span class="type-row-cost">$${ft.costPerKg}/kg</span>
+      <button class="type-del-btn" onclick="removeFilamentType(${i})">✕</button>
+    </div>`).join('');
+}
+function removeFilamentType(i) { settings.filamentTypes.splice(i,1); renderFilamentTypesList(); }
+function addFilamentType() {
+  const name = document.getElementById('newFilamentName').value.trim();
+  const cost = parseFloat(document.getElementById('newFilamentCost').value);
+  if (!name || isNaN(cost) || cost < 0) return;
+  settings.filamentTypes.push({name, costPerKg:cost});
+  document.getElementById('newFilamentName').value='';
+  document.getElementById('newFilamentCost').value='';
+  renderFilamentTypesList();
+}
+function renderResinTypesList() {
+  const el = document.getElementById('resinTypesList');
+  if (!settings.resinTypes.length) { el.innerHTML='<div class="empty-state">None defined.</div>'; return; }
+  el.innerHTML = settings.resinTypes.map((rt,i) =>
+    `<div class="type-row resin-row">
+      <span class="type-row-name">${esc(rt.name)}</span>
+      <span class="type-row-cost">$${rt.costPerKg}/kg</span>
+      <span class="type-row-density">${rt.densityGPerMl}g/mL</span>
+      <button class="type-del-btn" onclick="removeResinType(${i})">✕</button>
+    </div>`).join('');
+}
+function removeResinType(i) { settings.resinTypes.splice(i,1); renderResinTypesList(); }
+function addResinType() {
+  const name    = document.getElementById('newResinName').value.trim();
+  const cost    = parseFloat(document.getElementById('newResinCost').value);
+  const density = parseFloat(document.getElementById('newResinDensity').value) || 1.10;
+  if (!name || isNaN(cost) || cost < 0) return;
+  settings.resinTypes.push({name, costPerKg:cost, densityGPerMl:density});
+  document.getElementById('newResinName').value='';
+  document.getElementById('newResinCost').value='';
+  document.getElementById('newResinDensity').value='';
+  renderResinTypesList();
+}
+function saveSettingsModal() {
+  const n = (id, def) => { const v=parseFloat(document.getElementById(id).value); return isNaN(v)||v<0?def:v; };
+  settings.laborRate = n('setLaborRate', DEFAULT_SETTINGS.laborRate);
+  settings.fdmRate   = n('setFdmRate',   DEFAULT_SETTINGS.fdmRate);
+  settings.resinRate = n('setResinRate', DEFAULT_SETTINGS.resinRate);
+  persistSettings();
+  closeModal('settingsModal');
+  updateRateLabels();
+  if (activeProject) { updateLiveStats(); renderSidebar(); }
+}
+
+// ── DATA ──────────────────────────────────────────────────────────────
+function loadData() {
+  try {
+    const raw = localStorage.getItem('ar_tracker_v1');
+    if (raw) data = JSON.parse(raw);
+    else { const old=localStorage.getItem('jnb_tracker_v2'); if(old) data=JSON.parse(old); }
+  } catch {}
+  data.projects.forEach(p => {
+    if (p.printSessions && !p.fdmSessions) { p.fdmSessions=p.printSessions; delete p.printSessions; }
+    if (!p.designSessions) p.designSessions=[];
+    if (!p.fdmSessions)    p.fdmSessions=[];
+    if (!p.resinSessions)  p.resinSessions=[];
+    if (!p.receipts)       p.receipts=[];
+  });
+}
+function saveData() { localStorage.setItem('ar_tracker_v1', JSON.stringify(data)); }
+function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// ── FORMATTING ────────────────────────────────────────────────────────
+function fmt(ms) {
+  const s=Math.floor(Math.abs(ms)/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+function fmtMoney(n) { return '$'+Math.abs(n).toFixed(2); }
+function fmtDT(ts) {
+  const d=new Date(ts);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+
+    d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── COSTS ─────────────────────────────────────────────────────────────
+function sessionMs(s) { return (s.end||Date.now())-s.start; }
+
+function calcDesign(proj) {
+  const ms=(proj.designSessions||[]).reduce((sum,s)=>sum+sessionMs(s),0);
+  return {hours:ms/3600000, cost:(ms/3600000)*settings.laborRate};
+}
+function calcFdm(proj) {
+  let timeMs=0, matCost=0, totalGrams=0;
+  (proj.fdmSessions||[]).forEach(s=>{
+    timeMs+=sessionMs(s);
+    if (s.filamentG>0) {
+      const cpkg=s.filamentCostPerKg>0?s.filamentCostPerKg:20;
+      matCost+=(s.filamentG/1000)*cpkg; totalGrams+=s.filamentG;
+    }
+  });
+  const timeCost=(timeMs/3600000)*settings.fdmRate;
+  return {hours:timeMs/3600000, timeCost, matCost, totalGrams, total:timeCost+matCost};
+}
+function resinMatCost(s) {
+  // new mL-based calculation
+  if (s.resinMl>0 && s.resinCostPerKg>0) {
+    const density=s.resinDensity||1.10;
+    return (s.resinMl*density/1000)*s.resinCostPerKg;
+  }
+  // backward compat: old flat $ entry
+  return s.resinCost||0;
+}
+function calcResin(proj) {
+  let timeMs=0, matCost=0, totalMl=0;
+  (proj.resinSessions||[]).forEach(s=>{
+    timeMs+=sessionMs(s);
+    const mc=resinMatCost(s); matCost+=mc;
+    if (s.resinMl>0) totalMl+=s.resinMl;
+  });
+  const timeCost=(timeMs/3600000)*settings.resinRate;
+  return {hours:timeMs/3600000, timeCost, matCost, totalMl, total:timeCost+matCost};
+}
+function calcReceipts(proj) { return (proj.receipts||[]).reduce((sum,r)=>sum+r.amount,0); }
+function isClockedIn(proj,type) { const ss=proj[type+'Sessions']||[]; return ss.length>0&&!ss[ss.length-1].end; }
+function hasAnyActive(proj) { return isClockedIn(proj,'design')||isClockedIn(proj,'fdm')||isClockedIn(proj,'resin'); }
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list=document.getElementById('projectList');
+  list.innerHTML='';
+  data.projects.forEach(p=>{
+    const isActive=activeProject&&activeProject.id===p.id;
+    const anyActive=hasAnyActive(p);
+    const dc=calcDesign(p),fc=calcFdm(p),rc=calcResin(p);
+    const total=dc.cost+fc.total+rc.total+calcReceipts(p);
+    const div=document.createElement('div');
+    div.className='project-item'+(isActive?' active':'')+(anyActive?' has-active':'');
+    div.innerHTML='<div class="proj-name">'+(anyActive?'<span class="proj-indicator"></span>':'')+esc(p.name)+'</div>'+
+      '<div class="proj-meta">'+dc.hours.toFixed(1)+'h design · '+fc.hours.toFixed(1)+'h fdm · '+fmtMoney(total)+'</div>';
+    div.onclick=()=>selectProject(p.id);
+    list.appendChild(div);
+  });
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────
+function renderProject() {
+  const p=activeProject; if(!p) return;
+  document.getElementById('viewTitle').textContent=p.name;
+  document.getElementById('viewScope').textContent=p.scope||'No scope defined';
+  ['design','fdm','resin'].forEach(renderClock);
+  updateLiveStats();
+  ['design','fdm','resin'].forEach(renderSessions);
+  renderReceipts();
+}
+function renderClock(type) {
+  const p=activeProject, ci=isClockedIn(p,type);
+  document.getElementById(type+'Btn').className='punch-btn '+type+(ci?' active':'');
+  document.getElementById(type+'Label').textContent=ci?'Stop':(type==='design'?'Design':type==='fdm'?'FDM':'Resin');
+  const statusEl=document.getElementById(type+'Status'), sinceEl=document.getElementById(type+'Since');
+  if (ci) {
+    const last=p[type+'Sessions'][p[type+'Sessions'].length-1];
+    statusEl.textContent='RUNNING'; statusEl.className='clock-status active-'+type;
+    sinceEl.textContent='Since '+fmtDT(last.start);
+  } else {
+    statusEl.textContent=type==='design'?'Not clocked in':'Not running';
+    statusEl.className='clock-status'; sinceEl.textContent='';
+  }
+}
+function updateLiveStats() {
+  const p=activeProject; if(!p) return;
+  const dc=calcDesign(p),fc=calcFdm(p),rc=calcResin(p),exp=calcReceipts(p);
+  const grand=dc.cost+fc.total+rc.total+exp;
+  document.getElementById('statDesignCost').textContent=fmtMoney(dc.cost);
+  document.getElementById('statDesignHrs').textContent=dc.hours.toFixed(2)+' hrs';
+  document.getElementById('statFdmTime').textContent=fmtMoney(fc.timeCost);
+  document.getElementById('statFdmHrs').textContent=fc.hours.toFixed(2)+' hrs';
+  document.getElementById('statFdmMat').textContent=fmtMoney(fc.matCost);
+  document.getElementById('statFdmGrams').textContent=fc.totalGrams.toFixed(1)+'g logged';
+  document.getElementById('statResinTime').textContent=fmtMoney(rc.timeCost);
+  document.getElementById('statResinHrs').textContent=rc.hours.toFixed(2)+' hrs';
+  document.getElementById('statResinMat').textContent=fmtMoney(rc.matCost);
+  document.getElementById('statReceiptsLine').textContent='Receipts: '+fmtMoney(exp);
+  document.getElementById('statTotal').textContent=fmtMoney(grand);
+  ['design','fdm','resin'].forEach(type=>{
+    let ms;
+    if(isClockedIn(p,type)){const last=p[type+'Sessions'][p[type+'Sessions'].length-1];ms=Date.now()-last.start;}
+    else{ms=(p[type+'Sessions']||[]).reduce((sum,s)=>sum+(s.end?s.end-s.start:0),0);}
+    document.getElementById(type+'Timer').textContent=fmt(ms);
+  });
+}
+function renderSessions(type) {
+  const p=activeProject, sessions=(p[type+'Sessions']||[]).slice().reverse();
+  const log=document.getElementById(type+'Log');
+  document.getElementById(type+'Count').textContent=sessions.length;
+  if(!sessions.length){log.innerHTML='<div class="empty-state">No sessions yet.</div>';return;}
+  log.innerHTML=sessions.map((s,ri)=>{
+    const i=(p[type+'Sessions'].length-1)-ri, ms=sessionMs(s), active=!s.end;
+    const manTag=s.manual?'<span class="session-manual-tag">manual</span>':'';
+    let billHtml='', matHtml='';
+    if(type==='design'){
+      const bill=(ms/3600000)*settings.laborRate;
+      billHtml=active?'':`<div class="session-bill design-bill">${fmtMoney(bill)}</div>`;
+    } else if(type==='fdm'){
+      const timeCost=(ms/3600000)*settings.fdmRate;
+      billHtml=active?'':`<div class="session-bill fdm-bill">${fmtMoney(timeCost)}</div>`;
+      if(!active){
+        const hasG=s.filamentG>0;
+        const cpkg=s.filamentCostPerKg>0?s.filamentCostPerKg:20;
+        const filCost=hasG?(s.filamentG/1000)*cpkg:0;
+        const tl=s.filamentType?esc(s.filamentType):'';
+        matHtml=`<div class="session-mat"><span>${hasG?(tl?tl+' · ':'')+s.filamentG.toFixed(1)+'g @ $'+cpkg+'/kg → '+fmtMoney(filCost):'no filament logged'}</span><button class="session-mat-edit" onclick="editMaterial('fdm',${i})">edit</button></div>`;
+      }
+    } else if(type==='resin'){
+      const timeCost=(ms/3600000)*settings.resinRate;
+      billHtml=active?'':`<div class="session-bill resin-bill">${fmtMoney(timeCost)}</div>`;
+      if(!active){
+        const mc=resinMatCost(s);
+        const hasMat=s.resinMl>0||s.resinCost>0;
+        const tl=s.resinType?esc(s.resinType):'';
+        let matDesc='no resin logged';
+        if(s.resinMl>0&&s.resinCostPerKg>0){
+          const density=s.resinDensity||1.10;
+          matDesc=(tl?tl+' · ':'')+s.resinMl.toFixed(1)+'mL → '+fmtMoney(mc);
+        } else if(s.resinCost>0) {
+          matDesc=(tl?tl+' · ':'')+fmtMoney(s.resinCost);
+        }
+        matHtml=`<div class="session-mat"><span>${matDesc}</span><button class="session-mat-edit" onclick="editMaterial('resin',${i})">edit</button></div>`;
+      }
+    }
+    return `<div class="session-entry"><div class="session-row">
+      <div class="session-time">${active?'● ':''} ${fmtDT(s.start)}${s.end?' → '+fmtDT(s.end):'(active)'}${manTag}</div>
+      <div class="session-dur">${active?'running':fmt(ms)}</div>
+      ${billHtml}
+      <button class="session-delete" onclick="deleteSession('${type}',${i})">✕</button>
+    </div>${matHtml}</div>`;
+  }).join('');
+}
+function renderReceipts() {
+  const p=activeProject, receipts=p.receipts||[], total=calcReceipts(p);
+  const log=document.getElementById('receiptLog');
+  if(!receipts.length){log.innerHTML='<div class="empty-state">No receipts logged.</div>';document.getElementById('receiptTotalRow').style.display='none';return;}
+  log.innerHTML=receipts.map((r,i)=>`<div class="receipt-entry">
+    <div class="receipt-desc">${esc(r.desc)}</div>
+    <div class="receipt-amount">${fmtMoney(r.amount)}</div>
+    <button class="receipt-delete" onclick="deleteReceipt(${i})">✕</button>
+  </div>`).join('');
+  document.getElementById('receiptTotalRow').style.display='flex';
+  document.getElementById('receiptTotalVal').textContent=fmtMoney(total);
+}
+
+// ── SELECT PROJECT ────────────────────────────────────────────────────
+function selectProject(id) {
+  activeProject=data.projects.find(p=>p.id===id)||null;
+  clearInterval(timerInterval);
+  if(activeProject){
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('projectView').style.display='flex';
+    renderProject();
+    if(hasAnyActive(activeProject)) timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
+  } else {
+    document.getElementById('emptyState').style.display='flex';
+    document.getElementById('projectView').style.display='none';
+  }
+  renderSidebar();
+}
+
+// ── PUNCH ────────────────────────────────────────────────────────────
+function togglePunch(type) {
+  if(!activeProject) return;
+  const key=type+'Sessions';
+  if(!activeProject[key]) activeProject[key]=[];
+  if(isClockedIn(activeProject,type)){
+    const sessionIdx=activeProject[key].length-1;
+    activeProject[key][sessionIdx].end=Date.now();
+    saveData();
+    if(!hasAnyActive(activeProject)) clearInterval(timerInterval);
+    renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+    if(type==='fdm'||type==='resin'){pendingMaterial={type,sessionIdx};openMaterialModal(type,sessionIdx);}
+  } else {
+    activeProject[key].push({id:genId(),start:Date.now(),end:null});
+    saveData();
+    clearInterval(timerInterval);
+    timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
+    renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+  }
+}
+
+// ── MANUAL TIME ───────────────────────────────────────────────────────
+function openManual(type) {
+  manualType=type;
+  const labels={design:'Design Time',fdm:'FDM Printer',resin:'Resin Printer'};
+  const titleEl=document.getElementById('manualModalTitle');
+  titleEl.textContent='Log Manual Time — '+labels[type];
+  titleEl.className='modal-title manual-'+type;
+  document.getElementById('manualHours').value='';
+  document.getElementById('manualMinutes').value='';
+  document.getElementById('manualPreview').textContent='';
+  document.getElementById('manualModal').classList.add('open');
+  setTimeout(()=>document.getElementById('manualHours').focus(),50);
+}
+function updateManualPreview() {
+  const h=parseInt(document.getElementById('manualHours').value)||0;
+  const m=parseInt(document.getElementById('manualMinutes').value)||0;
+  const totalMs=(h*3600+m*60)*1000;
+  if(totalMs<=0){document.getElementById('manualPreview').textContent='';return;}
+  let cost='';
+  if(manualType==='design') cost=' → '+fmtMoney((totalMs/3600000)*settings.laborRate)+' labor';
+  else if(manualType==='fdm') cost=' → '+fmtMoney((totalMs/3600000)*settings.fdmRate)+' machine';
+  else if(manualType==='resin') cost=' → '+fmtMoney((totalMs/3600000)*settings.resinRate)+' machine';
+  document.getElementById('manualPreview').textContent=fmt(totalMs)+' session'+cost;
+}
+function saveManualTime() {
+  const h=parseInt(document.getElementById('manualHours').value)||0;
+  const m=parseInt(document.getElementById('manualMinutes').value)||0;
+  const totalMs=(h*3600+m*60)*1000;
+  if(totalMs<=0) return;
+  const end=Date.now(), start=end-totalMs;
+  const session={id:genId(),start,end,manual:true};
+  if(!activeProject[manualType+'Sessions']) activeProject[manualType+'Sessions']=[];
+  activeProject[manualType+'Sessions'].push(session);
+  saveData(); closeModal('manualModal');
+  renderSessions(manualType); updateLiveStats(); renderSidebar();
+  if(manualType==='fdm'||manualType==='resin'){
+    const sessionIdx=activeProject[manualType+'Sessions'].length-1;
+    pendingMaterial={type:manualType,sessionIdx};
+    openMaterialModal(manualType,sessionIdx);
+  }
+}
+
+// ── MATERIAL MODAL ────────────────────────────────────────────────────
+function buildFilamentSelect(currentType) {
+  const sel=document.getElementById('matFilamentType');
+  sel.innerHTML='<option value="">— select type —</option>';
+  settings.filamentTypes.forEach(ft=>{
+    const opt=document.createElement('option');
+    opt.value=ft.name; opt.textContent=ft.name+' ($'+ft.costPerKg+'/kg)';
+    if(currentType&&ft.name===currentType) opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+function buildResinSelect(currentType) {
+  const sel=document.getElementById('matResinType');
+  sel.innerHTML='<option value="">— select type —</option>';
+  settings.resinTypes.forEach(rt=>{
+    const opt=document.createElement('option');
+    opt.value=rt.name; opt.textContent=rt.name+' ($'+rt.costPerKg+'/kg, '+rt.densityGPerMl+'g/mL)';
+    if(currentType&&rt.name===currentType) opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+function onFilamentTypeChange() {
+  const name=document.getElementById('matFilamentType').value;
+  const ft=settings.filamentTypes.find(f=>f.name===name);
+  if(ft) document.getElementById('matFilamentCostPerKg').value=ft.costPerKg;
+  updateFdmPreview();
+}
+function onResinTypeChange() {
+  const name=document.getElementById('matResinType').value;
+  const rt=settings.resinTypes.find(r=>r.name===name);
+  if(rt){
+    document.getElementById('matResinCostPerKg').value=rt.costPerKg;
+    document.getElementById('matResinDensity').value=rt.densityGPerMl;
+  }
+  updateResinPreview();
+}
+function updateFdmPreview() {
+  const g=parseFloat(document.getElementById('matGrams').value)||0;
+  const cpkg=parseFloat(document.getElementById('matFilamentCostPerKg').value)||0;
+  const el=document.getElementById('fdmCostPreview');
+  el.textContent=(g>0&&cpkg>0)?g.toFixed(1)+'g × $'+cpkg+'/kg = '+fmtMoney((g/1000)*cpkg):'';
+}
+function updateResinPreview() {
+  const ml=parseFloat(document.getElementById('matResinMl').value)||0;
+  const cpkg=parseFloat(document.getElementById('matResinCostPerKg').value)||0;
+  const density=parseFloat(document.getElementById('matResinDensity').value)||1.10;
+  const el=document.getElementById('resinCostPreview');
+  if(ml>0&&cpkg>0){
+    const grams=ml*density, cost=(grams/1000)*cpkg;
+    el.textContent=ml.toFixed(1)+'mL × '+density+'g/mL = '+grams.toFixed(1)+'g = '+fmtMoney(cost);
+  } else { el.textContent=''; }
+}
+function openMaterialModal(type,sessionIdx) {
+  const titleEl=document.getElementById('materialModalTitle');
+  document.getElementById('fdmMatForm').style.display=type==='fdm'?'block':'none';
+  document.getElementById('resinMatForm').style.display=type==='resin'?'block':'none';
+  if(type==='fdm'){
+    titleEl.textContent='FDM — Log Filament'; titleEl.className='modal-title fdm-color';
+    const s=activeProject.fdmSessions[sessionIdx];
+    buildFilamentSelect(s.filamentType||'');
+    if(s.filamentType){const ft=settings.filamentTypes.find(f=>f.name===s.filamentType); if(ft) document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||ft.costPerKg;}
+    else{document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||'';}
+    document.getElementById('matGrams').value=s.filamentG||'';
+    const hrs=s.end?((s.end-s.start)/3600000):0;
+    document.getElementById('matMachineHint').textContent=hrs.toFixed(2)+'h × $'+settings.fdmRate+'/hr = '+fmtMoney(hrs*settings.fdmRate)+' machine cost';
+    document.getElementById('matSaveBtn').textContent='Log Filament';
+    updateFdmPreview();
+    setTimeout(()=>document.getElementById('matGrams').focus(),50);
+  } else {
+    titleEl.textContent='Resin — Log Material'; titleEl.className='modal-title resin-color';
+    const s=activeProject.resinSessions[sessionIdx];
+    buildResinSelect(s.resinType||'');
+    const rt=settings.resinTypes.find(r=>r.name===s.resinType);
+    document.getElementById('matResinMl').value=s.resinMl||'';
+    document.getElementById('matResinCostPerKg').value=s.resinCostPerKg||(rt?rt.costPerKg:'')||'';
+    document.getElementById('matResinDensity').value=s.resinDensity||(rt?rt.densityGPerMl:1.10)||1.10;
+    const hrs=s.end?((s.end-s.start)/3600000):0;
+    document.getElementById('resinMachineHint').textContent=hrs.toFixed(2)+'h × $'+settings.resinRate+'/hr = '+fmtMoney(hrs*settings.resinRate)+' machine cost';
+    document.getElementById('matSaveBtn').textContent='Log Resin';
+    updateResinPreview();
+    setTimeout(()=>document.getElementById('matResinMl').focus(),50);
+  }
+  document.getElementById('materialModal').classList.add('open');
+}
+function saveMaterial() {
+  if(!pendingMaterial||!activeProject){closeModal('materialModal');return;}
+  const {type,sessionIdx}=pendingMaterial;
+  const sessions=activeProject[type+'Sessions'];
+  if(!sessions[sessionIdx]){closeModal('materialModal');return;}
+  if(type==='fdm'){
+    const g=parseFloat(document.getElementById('matGrams').value);
+    const cpkg=parseFloat(document.getElementById('matFilamentCostPerKg').value);
+    const typeName=document.getElementById('matFilamentType').value;
+    sessions[sessionIdx].filamentG=(!isNaN(g)&&g>=0)?g:0;
+    sessions[sessionIdx].filamentCostPerKg=(!isNaN(cpkg)&&cpkg>0)?cpkg:0;
+    sessions[sessionIdx].filamentType=typeName||'';
+  } else {
+    const ml=parseFloat(document.getElementById('matResinMl').value);
+    const cpkg=parseFloat(document.getElementById('matResinCostPerKg').value);
+    const density=parseFloat(document.getElementById('matResinDensity').value)||1.10;
+    const typeName=document.getElementById('matResinType').value;
+    sessions[sessionIdx].resinMl=(!isNaN(ml)&&ml>=0)?ml:0;
+    sessions[sessionIdx].resinCostPerKg=(!isNaN(cpkg)&&cpkg>0)?cpkg:0;
+    sessions[sessionIdx].resinDensity=density;
+    sessions[sessionIdx].resinType=typeName||'';
+    delete sessions[sessionIdx].resinCost; // clear old flat-$ field
+  }
+  saveData(); pendingMaterial=null; closeModal('materialModal');
+  updateLiveStats(); renderSessions(type); renderSidebar();
+}
+function skipMaterial(){pendingMaterial=null;closeModal('materialModal');}
+function editMaterial(type,sessionIdx){pendingMaterial={type,sessionIdx};openMaterialModal(type,sessionIdx);}
+
+// ── SESSIONS & RECEIPTS ───────────────────────────────────────────────
+function deleteSession(type,i){
+  if(!confirm('Delete this session?')) return;
+  activeProject[type+'Sessions'].splice(i,1);
+  saveData(); renderSessions(type); updateLiveStats(); renderSidebar();
+}
+function addReceipt(){
+  const desc=document.getElementById('receiptDesc').value.trim();
+  const amt=parseFloat(document.getElementById('receiptAmt').value);
+  if(!desc||isNaN(amt)||amt<=0) return;
+  if(!activeProject.receipts) activeProject.receipts=[];
+  activeProject.receipts.push({id:genId(),desc,amount:amt});
+  saveData();
+  document.getElementById('receiptDesc').value='';
+  document.getElementById('receiptAmt').value='';
+  renderReceipts(); updateLiveStats(); renderSidebar();
+}
+function deleteReceipt(i){
+  activeProject.receipts.splice(i,1);
+  saveData(); renderReceipts(); updateLiveStats(); renderSidebar();
+}
+
+// ── PROJECT CRUD ──────────────────────────────────────────────────────
+function openNewProject(){
+  editingId=null;
+  document.getElementById('modalTitle').textContent='New Project';
+  document.getElementById('modalName').value='';
+  document.getElementById('modalScope').value='';
+  document.getElementById('modalSaveBtn').textContent='Create Project';
+  document.getElementById('projectModal').classList.add('open');
+  setTimeout(()=>document.getElementById('modalName').focus(),50);
+}
+function editProject(){
+  if(!activeProject) return;
+  editingId=activeProject.id;
+  document.getElementById('modalTitle').textContent='Edit Project';
+  document.getElementById('modalName').value=activeProject.name;
+  document.getElementById('modalScope').value=activeProject.scope||'';
+  document.getElementById('modalSaveBtn').textContent='Save Changes';
+  document.getElementById('projectModal').classList.add('open');
+  setTimeout(()=>document.getElementById('modalName').focus(),50);
+}
+function saveProject(){
+  const name=document.getElementById('modalName').value.trim();
+  if(!name) return;
+  const scope=document.getElementById('modalScope').value.trim();
+  if(editingId){
+    const p=data.projects.find(x=>x.id===editingId);
+    if(p){p.name=name;p.scope=scope;}
+    saveData(); closeModal('projectModal'); renderSidebar();
+    if(activeProject&&activeProject.id===editingId) renderProject();
+  } else {
+    const proj={id:genId(),name,scope,designSessions:[],fdmSessions:[],resinSessions:[],receipts:[],created:Date.now()};
+    data.projects.push(proj);
+    saveData(); closeModal('projectModal'); renderSidebar(); selectProject(proj.id);
+  }
+}
+function deleteProject(){
+  if(!activeProject) return;
+  if(!confirm('Delete "'+activeProject.name+'" and all its data? Cannot be undone.')) return;
+  data.projects=data.projects.filter(p=>p.id!==activeProject.id);
+  activeProject=null; clearInterval(timerInterval);
+  saveData(); renderSidebar();
+  document.getElementById('emptyState').style.display='flex';
+  document.getElementById('projectView').style.display='none';
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal'].forEach(closeModal);pendingMaterial=null;manualType=null;}
+  if(e.key==='Enter'&&document.getElementById('projectModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA') saveProject();
+  if(e.key==='Enter'&&document.getElementById('manualModal').classList.contains('open')) saveManualTime();
+});
+['projectModal','settingsModal'].forEach(id=>
+  document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal(id);})
+);
+document.getElementById('receiptAmt').addEventListener('keydown',e=>{if(e.key==='Enter')addReceipt();});
+document.getElementById('newFilamentName').addEventListener('keydown',e=>{if(e.key==='Enter')addFilamentType();});
+document.getElementById('newResinName').addEventListener('keydown',e=>{if(e.key==='Enter')addResinType();});
+
+// == INVOICE EXPORT ==
+function openExportModal() {
+  if (!activeProject) return;
+  const now = new Date();
+  const ym = now.getFullYear().toString() + String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('exportInvoiceNum').value = 'AR-' + ym + '-' + activeProject.id.slice(-4).toUpperCase();
+  document.getElementById('exportDate').value = now.toISOString().slice(0,10);
+  document.getElementById('exportDueDate').value = new Date(now.getTime()+30*24*3600*1000).toISOString().slice(0,10);
+  document.getElementById('exportMarkupPct').value = '1.5';
+  document.getElementById('exportBillTo').value = '';
+  document.getElementById('exportNotes').value = '';
+  document.getElementById('exportModalProjectName').textContent = activeProject.name;
+  document.getElementById('exportModal').classList.add('open');
+}
+
+function generateInvoice(withMarkup) {
+  const proj = activeProject;
+  if (!proj) return;
+  const billTo      = document.getElementById('exportBillTo').value.trim();
+  const invoiceNum  = document.getElementById('exportInvoiceNum').value.trim() || 'AR-DRAFT';
+  const invoiceDate = document.getElementById('exportDate').value;
+  const dueDate     = document.getElementById('exportDueDate').value;
+  const notes       = document.getElementById('exportNotes').value.trim();
+  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 1.5;
+
+  const dSessions = (proj.designSessions||[]).filter(s=>s.end);
+  const fSessions = (proj.fdmSessions||[]).filter(s=>s.end);
+  const rSessions = (proj.resinSessions||[]).filter(s=>s.end);
+
+  const designMs  = dSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
+  const designHrs = designMs/3600000;
+  const designCost= designHrs*settings.laborRate;
+  const fdmMs   = fSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
+  const fdmHrs  = fdmMs/3600000;
+  const fdmTime = fdmHrs*settings.fdmRate;
+  const resinMs   = rSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
+  const resinHrs  = resinMs/3600000;
+  const resinTime = resinHrs*settings.resinRate;
+
+  const filamentGroups = {};
+  fSessions.forEach(s=>{
+    if (!(s.filamentG>0)) return;
+    const key = s.filamentType||'Unspecified';
+    if (!filamentGroups[key]) filamentGroups[key]={grams:0,cost:0};
+    const cpkg = s.filamentCostPerKg>0?s.filamentCostPerKg:20;
+    filamentGroups[key].grams += s.filamentG;
+    filamentGroups[key].cost  += (s.filamentG/1000)*cpkg;
+  });
+  const resinGroups = {};
+  rSessions.forEach(s=>{
+    const mc = resinMatCost(s);
+    if (mc<=0 && !(s.resinMl>0)) return;
+    const key = s.resinType||'Unspecified';
+    if (!resinGroups[key]) resinGroups[key]={ml:0,cost:0};
+    resinGroups[key].ml   += s.resinMl||0;
+    resinGroups[key].cost += mc;
+  });
+
+  const lines = [];
+  if (designHrs>0) lines.push({desc:'Design Labor',       detail:designHrs.toFixed(2)+' hrs @ $'+settings.laborRate+'/hr', amount:designCost});
+  if (fdmHrs>0)    lines.push({desc:'FDM Machine Time',   detail:fdmHrs.toFixed(2)+' hrs @ $'+settings.fdmRate+'/hr',      amount:fdmTime});
+  Object.entries(filamentGroups).forEach(([type,d])=>{
+    lines.push({desc:'Filament — '+type, detail:d.grams.toFixed(1)+'g', amount:d.cost});
+  });
+  if (resinHrs>0)  lines.push({desc:'Resin Machine Time', detail:resinHrs.toFixed(2)+' hrs @ $'+settings.resinRate+'/hr',  amount:resinTime});
+  Object.entries(resinGroups).forEach(([type,d])=>{
+    lines.push({desc:'Resin — '+type, detail:d.ml>0?d.ml.toFixed(1)+' mL':'', amount:d.cost});
+  });
+  (proj.receipts||[]).forEach(r=>lines.push({desc:r.desc, detail:'expense', amount:r.amount}));
+
+  const subtotal     = lines.reduce((sum,l)=>sum+l.amount, 0);
+  const markupAmount = withMarkup ? subtotal*(markupPct/100) : 0;
+  const total        = subtotal + markupAmount;
+
+  const fmtD = str=>{ if(!str) return 'N/A'; const d=new Date(str+'T12:00:00'); return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); };
+  const esc  = s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const billToHtml = billTo
+    ? '<pre style="font-family:inherit;font-size:13px;white-space:pre-wrap;line-height:1.65;margin:0;">'+esc(billTo)+'</pre>'
+    : '<span style="color:#aaa;font-style:italic;">— not specified —</span>';
+
+  const lineRowsHtml = lines.map((l,i)=>
+    '<tr class="'+(i%2===0?'row-even':'row-odd')+'">' +
+    '<td class="ld">'+esc(l.desc)+'</td>' +
+    '<td class="lde">'+esc(l.detail)+'</td>' +
+    '<td class="la">$'+l.amount.toFixed(2)+'</td></tr>'
+  ).join('');
+
+  const emptyHtml = lines.length===0
+    ? '<tr><td colspan="3" style="padding:16px 12px;color:#aaa;font-style:italic;">No completed sessions recorded.</td></tr>'
+    : '';
+
+  const markupRowHtml = withMarkup
+    ? '<tr class="fee-row"><td colspan="2" class="tl">Service Fee ('+markupPct+'%)</td><td class="ta">$'+markupAmount.toFixed(2)+'</td></tr>'
+    : '';
+
+  const notesHtml = notes
+    ? '<div class="notes-blk"><div class="nlab">Notes</div><div class="nbody">'+esc(notes)+'</div></div>'
+    : '';
+
+  const dg = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const mnote = withMarkup ? '<tr><td>Date</td><td>Incl. '+markupPct+'% service fee</td></tr>' : '';
+  const scopeHtml = proj.scope ? '<div class="pscope">'+esc(proj.scope)+'</div>' : '';
+
+  const html = [
+    '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">',
+    '<title>Invoice '+esc(invoiceNum)+' — '+esc(proj.name)+'</title>',
+    '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">',
+    '<style>',
+    '  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}',
+    '  :root{--dark:#0e0e0f;--red:#b01e22;--text:#1a1a1a;--muted:#666;--dim:#999;--border:#ddd;--bg-alt:#f7f7f8;}',
+    '  body{background:#fff;color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:13px;}',
+    '  .page{max-width:820px;margin:0 auto;}',
+    '  .pbar{background:#f0f0f2;padding:10px 36px;display:flex;justify-content:flex-end;}',
+    '  .pbtn{padding:7px 18px;background:var(--dark);color:#fff;border:none;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;}',
+    '  .pbtn:hover{background:var(--red);}',
+    '  .hdr{background:var(--dark);color:#fff;padding:28px 36px;display:flex;align-items:center;justify-content:space-between;}',
+    '  .hdr-left{display:flex;align-items:center;gap:18px;} .hdr-left img{height:64px;}',
+    '  .co-name{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600;letter-spacing:.07em;}',
+    '  .co-sub{font-family:"IBM Plex Mono",monospace;font-size:9px;color:#666;letter-spacing:.12em;text-transform:uppercase;margin-top:3px;}',
+    '  .inv-word{font-family:"IBM Plex Mono",monospace;font-size:30px;font-weight:600;color:var(--red);letter-spacing:.12em;text-transform:uppercase;}',
+    '  .meta{display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid var(--dark);}',
+    '  .mc{padding:20px 36px;} .mc+.mc{border-left:1px solid var(--border);}',
+    '  .mlbl{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;}',
+    '  .mval{font-size:13px;line-height:1.65;}',
+    '  .inv-num{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600;color:var(--red);margin-bottom:6px;}',
+    '  .dtab{border-collapse:collapse;} .dtab td{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 0;} .dtab td:first-child{color:var(--muted);width:80px;}',
+    '  .proj-bar{background:var(--bg-alt);padding:13px 36px;border-bottom:1px solid var(--border);}',
+    '  .plbl{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}',
+    '  .pname{font-size:15px;font-weight:600;} .pscope{font-size:12px;color:var(--muted);margin-top:3px;}',
+    '  .body{padding:0 36px 24px;}',
+    '  table.items{width:100%;border-collapse:collapse;margin-top:20px;}',
+    '  .items thead tr{background:var(--dark);color:#fff;}',
+    '  .items th{padding:9px 12px;font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-align:left;}',
+    '  .items th.r{text-align:right;}',
+    '  .items tr.row-even{background:#fff;} .items tr.row-odd{background:var(--bg-alt);}',
+    '  .items td{padding:9px 12px;border-bottom:1px solid var(--border);}',
+    '  td.ld{font-weight:500;} td.lde{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);}',
+    '  td.la{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;text-align:right;}',
+    '  .tot{width:100%;border-collapse:collapse;margin-top:2px;}',
+    '  .tot .sub-row td{padding:10px 12px 5px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);}',
+    '  .tot .fee-row td{padding:4px 12px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);border-top:1px solid var(--border);}',
+    '  .tot .fin-row td{padding:11px 12px;background:var(--dark);color:#fff;font-family:"IBM Plex Mono",monospace;font-weight:600;}',
+    '  .tl{text-transform:uppercase;letter-spacing:.08em;font-size:10px;width:55%;} .ta{text-align:right;}',
+    '  .fin-row .ta{color:var(--red);font-size:20px;}',
+    '  .notes-blk{padding:18px 36px;border-top:1px solid var(--border);margin-top:16px;}',
+    '  .nlab{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;}',
+    '  .nbody{font-size:12px;color:var(--muted);line-height:1.6;white-space:pre-wrap;}',
+    '  .ftr{background:var(--dark);color:#444;padding:13px 36px;font-family:"IBM Plex Mono",monospace;font-size:10px;display:flex;justify-content:space-between;margin-top:24px;}',
+    '  @media print{.pbar{display:none;}.page{max-width:100%;}}',
+    '</style></head><body>',
+    '<div class="page">',
+    '  <div class="pbar"><button class="pbtn" onclick="window.print()">Print / Save PDF</button></div>',
+    '  <div class="hdr">',
+    '    <div class="hdr-left"><img src="/ARLogo-FullTrans.png" alt="AR"><div><div class="co-name">AZAZEL\'S RAZER</div><div class="co-sub">LLC</div></div></div>',
+    '    <div class="inv-word">Invoice</div>',
+    '  </div>',
+    '  <div class="meta">',
+    '    <div class="mc"><div class="mlbl">Bill To</div><div class="mval">'+billToHtml+'</div></div>',
+    '    <div class="mc"><div class="mlbl">Invoice Details</div><div class="inv-num">'+esc(invoiceNum)+'</div>',
+    '      <table class="dtab"><tr><td>Date</td><td>'+fmtD(invoiceDate)+'</td></tr><tr><td>Due</td><td>'+fmtD(dueDate)+'</td></tr>'+mnote+'</table>',
+    '    </div>',
+    '  </div>',
+    '  <div class="proj-bar"><div class="plbl">Project</div><div class="pname">'+esc(proj.name)+'</div>'+scopeHtml+'</div>',
+    '  <div class="body">',
+    '    <table class="items"><thead><tr><th style="width:44%">Description</th><th>Detail</th><th class="r">Amount</th></tr></thead><tbody>'+lineRowsHtml+emptyHtml+'</tbody></table>',
+    '    <table class="tot">',
+    '      <tr class="sub-row"><td></td><td class="tl">Subtotal</td><td class="ta">$'+subtotal.toFixed(2)+'</td></tr>',
+    '      '+markupRowHtml,
+    '      <tr class="fin-row"><td></td><td class="tl">Total Due</td><td class="ta">$'+total.toFixed(2)+'</td></tr>',
+    '    </table>',
+    '  </div>',
+    notesHtml,
+    '  <div class="ftr"><span>Azazel\'s Razer, LLC</span><span>Generated '+dg+'</span></div>',
+    '</div></body></html>'
+  ].join('');
+
+  closeModal('exportModal');
+  const win = window.open('','_blank','width=900,height=750');
+  if (!win) { alert('Pop-up blocked — allow pop-ups for localhost.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+loadSettings(); loadData(); updateRateLabels(); renderSidebar();
+if(data.projects.length>0) selectProject(data.projects[0].id);
+</script>
+</body>
+</html>
