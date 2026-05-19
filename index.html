@@ -352,7 +352,7 @@
     </div>
     <div class="form-row-2">
       <div><label class="form-label">Invoice #</label><input type="text" id="exportInvoiceNum" /></div>
-      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="1.5" step="0.1" min="0" /></div>
+      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="3" step="0.1" min="0" /></div>
     </div>
     <div class="form-row-2">
       <div><label class="form-label">Invoice Date</label><input type="date" id="exportDate" /></div>
@@ -364,8 +364,9 @@
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('exportModal')">Cancel</button>
-      <button class="btn-create" onclick="generateInvoice(false)">Export — Actual</button>
-      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Export — + Markup</button>
+      <button class="btn-create" onclick="generateInvoice('actual')">Export — Actual</button>
+      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice('markup')">Export — + Markup</button>
+      <button class="btn-create" style="background:rgba(133,183,235,.08);border-color:rgba(133,183,235,.5);" onclick="generateInvoice('reduced')">Export — Reduced Rate</button>
     </div>
   </div>
 </div>
@@ -1111,14 +1112,16 @@ function openExportModal() {
   document.getElementById('exportInvoiceNum').value = 'AR-' + ym + '-' + activeProject.id.slice(-4).toUpperCase();
   document.getElementById('exportDate').value = now.toISOString().slice(0,10);
   document.getElementById('exportDueDate').value = new Date(now.getTime()+30*24*3600*1000).toISOString().slice(0,10);
-  document.getElementById('exportMarkupPct').value = '1.5';
+  document.getElementById('exportMarkupPct').value = '3';
   document.getElementById('exportBillTo').value = '';
   document.getElementById('exportNotes').value = '';
   document.getElementById('exportModalProjectName').textContent = activeProject.name;
   document.getElementById('exportModal').classList.add('open');
 }
 
-function generateInvoice(withMarkup) {
+const REDUCED_DESIGN_RATE = 30;
+
+function generateInvoice(mode) {
   const proj = activeProject;
   if (!proj) return;
   const billTo      = document.getElementById('exportBillTo').value.trim();
@@ -1126,7 +1129,11 @@ function generateInvoice(withMarkup) {
   const invoiceDate = document.getElementById('exportDate').value;
   const dueDate     = document.getElementById('exportDueDate').value;
   const notes       = document.getElementById('exportNotes').value.trim();
-  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 1.5;
+  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 3;
+
+  const withMarkup  = mode === 'markup';
+  const withReduced = mode === 'reduced';
+  const designRate  = withReduced ? REDUCED_DESIGN_RATE : settings.laborRate;
 
   const dSessions = (proj.designSessions||[]).filter(s=>s.end);
   const fSessions = (proj.fdmSessions||[]).filter(s=>s.end);
@@ -1134,7 +1141,7 @@ function generateInvoice(withMarkup) {
 
   const designMs  = dSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
   const designHrs = designMs/3600000;
-  const designCost= designHrs*settings.laborRate;
+  const designCost= designHrs*designRate;
   const fdmMs   = fSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
   const fdmHrs  = fdmMs/3600000;
   const fdmTime = fdmHrs*settings.fdmRate;
@@ -1162,7 +1169,7 @@ function generateInvoice(withMarkup) {
   });
 
   const lines = [];
-  if (designHrs>0) lines.push({desc:'Design Labor',       detail:designHrs.toFixed(2)+' hrs @ $'+settings.laborRate+'/hr', amount:designCost});
+  if (designHrs>0) lines.push({desc:'Design Labor'+(withReduced?' (Reduced Rate)':''), detail:designHrs.toFixed(2)+' hrs @ $'+designRate+'/hr', amount:designCost});
   if (fdmHrs>0)    lines.push({desc:'FDM Machine Time',   detail:fdmHrs.toFixed(2)+' hrs @ $'+settings.fdmRate+'/hr',      amount:fdmTime});
   Object.entries(filamentGroups).forEach(([type,d])=>{
     lines.push({desc:'Filament — '+type, detail:d.grams.toFixed(1)+'g', amount:d.cost});
@@ -1204,7 +1211,9 @@ function generateInvoice(withMarkup) {
     : '';
 
   const dg = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const mnote = withMarkup ? '<tr><td>Date</td><td>Incl. '+markupPct+'% service fee</td></tr>' : '';
+  const mnote = withMarkup ? '<tr><td>Note</td><td>Incl. '+markupPct+'% service fee</td></tr>'
+             : withReduced ? '<tr><td>Note</td><td>Design billed at reduced rate ($'+REDUCED_DESIGN_RATE+'/hr)</td></tr>'
+             : '';
   const scopeHtml = proj.scope ? '<div class="pscope">'+esc(proj.scope)+'</div>' : '';
 
   const html = [
