@@ -916,7 +916,7 @@ function renderSessions(type) {
         const cpkg=s.filamentCostPerKg>0?s.filamentCostPerKg:20;
         const filCost=hasG?(s.filamentG/1000)*cpkg:0;
         const tl=s.filamentType?esc(s.filamentType):'';
-        matHtml=`<div class="session-mat"><span>${hasG?(tl?tl+' · ':'')+s.filamentG.toFixed(1)+'g @ $'+cpkg+'/kg → '+fmtMoney(filCost):'no filament logged'}</span><button class="session-mat-edit" onclick="editMaterial('fdm',${i})">edit</button></div>`;
+        matHtml=`<div class="session-mat"><span>${hasG?(tl?tl+' · ':'')+s.filamentG.toFixed(1)+'g @ $'+cpkg.toFixed(2)+'/kg → '+fmtMoney(filCost):'no filament logged'}</span><button class="session-mat-edit" onclick="editMaterial('fdm',${i})">edit</button></div>`;
       }
     } else if(type==='resin'){
       const timeCost=(ms/3600000)*settings.resinRate;
@@ -1133,7 +1133,7 @@ function updateFdmPreview() {
   const g=parseFloat(document.getElementById('matGrams').value)||0;
   const cpkg=parseFloat(document.getElementById('matFilamentCostPerKg').value)||0;
   const el=document.getElementById('fdmCostPreview');
-  el.textContent=(g>0&&cpkg>0)?g.toFixed(1)+'g × $'+cpkg+'/kg = '+fmtMoney((g/1000)*cpkg):'';
+  el.textContent=(g>0&&cpkg>0)?g.toFixed(1)+'g × $'+cpkg.toFixed(2)+'/kg = '+fmtMoney((g/1000)*cpkg):'';
 }
 function updateResinPreview() {
   const ml=parseFloat(document.getElementById('matResinMl').value)||0;
@@ -1142,7 +1142,7 @@ function updateResinPreview() {
   const el=document.getElementById('resinCostPreview');
   if(ml>0&&cpkg>0){
     const grams=ml*density, cost=(grams/1000)*cpkg;
-    el.textContent=ml.toFixed(1)+'mL × '+density+'g/mL = '+grams.toFixed(1)+'g = '+fmtMoney(cost);
+    el.textContent=ml.toFixed(1)+'mL × '+density.toFixed(2)+'g/mL = '+grams.toFixed(1)+'g = '+fmtMoney(cost);
   } else { el.textContent=''; }
 }
 function openMaterialModal(type,sessionIdx) {

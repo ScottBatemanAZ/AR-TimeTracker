@@ -232,15 +232,15 @@ def generate_ods(payload):
         f_rows.append(row(
             sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
             sc(ms_hm(ms)), sc(mat),
-            nc(g,1) if g else sc('—'), nc(cpkg,2) if cpkg else sc('—'),
+            nc(g,2) if g else sc('—'), nc(cpkg,2) if cpkg else sc('—'),
             cc(fc) if fc else sc('—'), cc(mach), cc(fc+mach)))
     f_rows += [blank(), row(sc('Subtotals by Material', B)),
                row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('Grams',H),
                    sc('',H), sc('',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Total',H))]
     for mat, t in f_mat_tots.items():
-        f_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['g'],1),
+        f_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['g'],2),
                           sc(''), sc(''), cc(t['fil']), cc(t['mach']), cc(t['fil']+t['mach'])))
-    f_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(f_ms),B), nc(f_g,1,B),
+    f_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(f_ms),B), nc(f_g,2,B),
                       sc(''), sc(''), cc(f_fil,B), cc(f_mach,B), cc(f_fil+f_mach,B)))
     fdm_total = f_fil + f_mach
 
@@ -267,15 +267,15 @@ def generate_ods(payload):
         r_rows.append(row(
             sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
             sc(ms_hm(ms)), sc(mat),
-            nc(ml,1) if ml else sc('—'), nc(cpkg,2) if cpkg else sc('—'), nc(dens,2),
+            nc(ml,2) if ml else sc('—'), nc(cpkg,2) if cpkg else sc('—'), nc(dens,2),
             cc(rc) if rc else sc('—'), cc(mach), cc(rc+mach)))
     r_rows += [blank(), row(sc('Subtotals by Material', B)),
                row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('mL',H),
                    sc('',H), sc('',H), sc('',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Total',H))]
     for mat, t in r_mat_tots.items():
-        r_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['ml'],1),
+        r_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['ml'],2),
                           sc(''), sc(''), sc(''), cc(t['mat']), cc(t['mach']), cc(t['mat']+t['mach'])))
-    r_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(r_ms),B), nc(r_ml,1,B),
+    r_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(r_ms),B), nc(r_ml,2,B),
                       sc(''), sc(''), sc(''), cc(r_mat,B), cc(r_mach,B), cc(r_mat+r_mach,B)))
     resin_total = r_mat + r_mach
 
