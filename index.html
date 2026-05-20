@@ -76,6 +76,12 @@
   .clock-status.active-fdm   { color: var(--green-bright); }
   .clock-status.active-resin { color: var(--blue-bright); }
   .punch-since { font-family: var(--mono); font-size: 9px; color: var(--dim); margin-top: 3px; }
+  .printer-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-left: 6px; vertical-align: middle; background: var(--border2); }
+  .printer-dot.idle     { background: var(--green-bright); opacity: .55; }
+  .printer-dot.printing { background: var(--green-bright); box-shadow: 0 0 0 3px rgba(93,202,165,.25); animation: dotpulse 1.2s ease-in-out infinite; }
+  .printer-dot.dim      { background: var(--muted); opacity: .35; }
+  .printer-dot.offline  { background: var(--red); }
+  @keyframes dotpulse { 0%,100%{opacity:1} 50%{opacity:.35} }
   .manual-link { font-family: var(--mono); font-size: 9px; color: var(--dim); cursor: pointer; background: none; border: none; padding: 0; margin-top: 4px; display: block; letter-spacing: .05em; transition: color .15s; }
   .manual-link:hover { color: var(--amber); }
 
@@ -99,6 +105,11 @@
 
   .session-entry { padding: 6px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 10px; }
   .session-entry:last-child { border-bottom: none; }
+  .session-entry-live { border-left: 3px solid var(--green-bright); padding-left: 8px; background: rgba(93,202,165,.04); border-radius: 2px; margin-bottom: 2px; }
+  .session-live-badge { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--green-bright); font-weight: 700; animation: dotpulse 1.4s ease-in-out infinite; margin-bottom: 2px; }
+  .fdm-resume-bar { display: none; align-items: center; justify-content: space-between; background: rgba(239,159,39,.07); border: 1px solid rgba(239,159,39,.35); border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; font-family: var(--mono); font-size: 9px; color: var(--amber); letter-spacing: .06em; }
+  .fdm-resume-bar button { font-family: var(--mono); font-size: 9px; background: rgba(239,159,39,.15); border: 1px solid rgba(239,159,39,.45); color: var(--amber); border-radius: 3px; padding: 3px 8px; cursor: pointer; }
+  .fdm-resume-bar button:hover { background: rgba(239,159,39,.28); }
   .session-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px; align-items: center; }
   .session-time { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
   .session-dur  { color: var(--text); white-space: nowrap; font-size: 11px; }
@@ -240,13 +251,13 @@
         </div>
         <div class="clock-track">
           <button class="punch-btn fdm" id="fdmBtn" onclick="togglePunch('fdm')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+            <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M230.738,238.655H17.405v-41.352h213.333V238.655z M205.595,172.032H43.25v25.271h162.345V172.032z M17.405,197.303L43.25,17.345 M230.738,197.303L205.595,17.345 M205.595,17.345H43.25v10.721h162.345V17.345z M143.393,70.008h-36.865v50.288h36.865V70.008z M124.961,120.296v19.853 M122.497,68.543c1.582-6.545,7.382-11.334,13.607-13.901c9.622-3.968,20.484-3.671,30.754-1.982c10.27,1.689,20.307,4.696,30.636,5.978c10.328,1.281,21.297,0.693,30.381-4.387c4.268-2.387,8.122-5.889,9.853-10.462c1.731-4.574,0.908-10.297-2.802-13.483 M143.393,100.555h69.276V79.546h-69.276V100.555z M106.528,79.546H35.26v21.008h71.268V79.546z"/>
             </svg>
             <span id="fdmLabel">FDM</span>
           </button>
           <div class="track-info">
-            <div class="track-label fdm-label">FDM Printer</div>
+            <div class="track-label fdm-label">FDM Printer<span class="printer-dot dim" id="printerDot" title="Printer status unknown"></span></div>
             <div class="track-rate" id="fdmRateLabel"></div>
             <div class="live-timer fdm-timer" id="fdmTimer">00:00:00</div>
             <div class="clock-status" id="fdmStatus">Not running</div>
@@ -256,8 +267,8 @@
         </div>
         <div class="clock-track">
           <button class="punch-btn resin" id="resinBtn" onclick="togglePunch('resin')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+            <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M46.924,180.121h162.153v58.838H46.924V180.121z M209.076,174.169H46.924L60.822,17.041h135.746L209.076,174.169z M91.747,180.121h69.494v29.419H91.747V180.121z M78.312,72.836h98.681 M113.522,46.169h29.188v21.333h-29.188V46.169z M127.653,72.836v101.333"/>
             </svg>
             <span id="resinLabel">Resin</span>
           </button>
@@ -312,6 +323,7 @@
         </div>
         <div class="panel">
           <div class="panel-title fdm-title"><span>FDM Sessions</span><span id="fdmCount" style="color:var(--dim)">0</span></div>
+          <div class="fdm-resume-bar" id="fdmResumeBar">⚠ Printer is printing — not tracking<button onclick="resumePrintTracking()">Resume Tracking</button></div>
           <div id="fdmLog"></div>
         </div>
         <div class="panel">
@@ -352,7 +364,7 @@
     </div>
     <div class="form-row-2">
       <div><label class="form-label">Invoice #</label><input type="text" id="exportInvoiceNum" /></div>
-      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="3" step="0.1" min="0" /></div>
+      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="1.5" step="0.1" min="0" /></div>
     </div>
     <div class="form-row-2">
       <div><label class="form-label">Invoice Date</label><input type="date" id="exportDate" /></div>
@@ -364,9 +376,8 @@
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('exportModal')">Cancel</button>
-      <button class="btn-create" onclick="generateInvoice('actual')">Export — Actual</button>
-      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice('markup')">Export — + Markup</button>
-      <button class="btn-create" style="background:rgba(133,183,235,.08);border-color:rgba(133,183,235,.5);" onclick="generateInvoice('reduced')">Export — Reduced Rate</button>
+      <button class="btn-create" onclick="generateInvoice(false)">Export — Actual</button>
+      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Export — + Markup</button>
     </div>
   </div>
 </div>
@@ -810,7 +821,10 @@ function renderSessions(type) {
         matHtml=`<div class="session-mat"><span>${matDesc}</span><button class="session-mat-edit" onclick="editMaterial('resin',${i})">edit</button></div>`;
       }
     }
-    return `<div class="session-entry"><div class="session-row">
+    const isLivePrint = active && type === 'fdm' && s.auto;
+    const liveBadge   = isLivePrint ? '<div class="session-live-badge">▶ Print in Progress</div>' : '';
+    return `<div class="session-entry${isLivePrint?' session-entry-live':''}">
+    ${liveBadge}<div class="session-row">
       <div class="session-time">${active?'● ':''} ${fmtDT(s.start)}${s.end?' → '+fmtDT(s.end):'(active)'}${manTag}</div>
       <div class="session-dur">${active?'running':fmt(ms)}</div>
       ${billHtml}
@@ -1112,16 +1126,14 @@ function openExportModal() {
   document.getElementById('exportInvoiceNum').value = 'AR-' + ym + '-' + activeProject.id.slice(-4).toUpperCase();
   document.getElementById('exportDate').value = now.toISOString().slice(0,10);
   document.getElementById('exportDueDate').value = new Date(now.getTime()+30*24*3600*1000).toISOString().slice(0,10);
-  document.getElementById('exportMarkupPct').value = '3';
+  document.getElementById('exportMarkupPct').value = '1.5';
   document.getElementById('exportBillTo').value = '';
   document.getElementById('exportNotes').value = '';
   document.getElementById('exportModalProjectName').textContent = activeProject.name;
   document.getElementById('exportModal').classList.add('open');
 }
 
-const REDUCED_DESIGN_RATE = 30;
-
-function generateInvoice(mode) {
+function generateInvoice(withMarkup) {
   const proj = activeProject;
   if (!proj) return;
   const billTo      = document.getElementById('exportBillTo').value.trim();
@@ -1129,11 +1141,7 @@ function generateInvoice(mode) {
   const invoiceDate = document.getElementById('exportDate').value;
   const dueDate     = document.getElementById('exportDueDate').value;
   const notes       = document.getElementById('exportNotes').value.trim();
-  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 3;
-
-  const withMarkup  = mode === 'markup';
-  const withReduced = mode === 'reduced';
-  const designRate  = withReduced ? REDUCED_DESIGN_RATE : settings.laborRate;
+  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 1.5;
 
   const dSessions = (proj.designSessions||[]).filter(s=>s.end);
   const fSessions = (proj.fdmSessions||[]).filter(s=>s.end);
@@ -1141,7 +1149,7 @@ function generateInvoice(mode) {
 
   const designMs  = dSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
   const designHrs = designMs/3600000;
-  const designCost= designHrs*designRate;
+  const designCost= designHrs*settings.laborRate;
   const fdmMs   = fSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
   const fdmHrs  = fdmMs/3600000;
   const fdmTime = fdmHrs*settings.fdmRate;
@@ -1169,7 +1177,7 @@ function generateInvoice(mode) {
   });
 
   const lines = [];
-  if (designHrs>0) lines.push({desc:'Design Labor'+(withReduced?' (Reduced Rate)':''), detail:designHrs.toFixed(2)+' hrs @ $'+designRate+'/hr', amount:designCost});
+  if (designHrs>0) lines.push({desc:'Design Labor',       detail:designHrs.toFixed(2)+' hrs @ $'+settings.laborRate+'/hr', amount:designCost});
   if (fdmHrs>0)    lines.push({desc:'FDM Machine Time',   detail:fdmHrs.toFixed(2)+' hrs @ $'+settings.fdmRate+'/hr',      amount:fdmTime});
   Object.entries(filamentGroups).forEach(([type,d])=>{
     lines.push({desc:'Filament — '+type, detail:d.grams.toFixed(1)+'g', amount:d.cost});
@@ -1211,9 +1219,7 @@ function generateInvoice(mode) {
     : '';
 
   const dg = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const mnote = withMarkup ? '<tr><td>Note</td><td>Incl. '+markupPct+'% service fee</td></tr>'
-             : withReduced ? '<tr><td>Note</td><td>Design billed at reduced rate ($'+REDUCED_DESIGN_RATE+'/hr)</td></tr>'
-             : '';
+  const mnote = withMarkup ? '<tr><td>Date</td><td>Incl. '+markupPct+'% service fee</td></tr>' : '';
   const scopeHtml = proj.scope ? '<div class="pscope">'+esc(proj.scope)+'</div>' : '';
 
   const html = [
@@ -1295,6 +1301,111 @@ function generateInvoice(mode) {
   win.document.write(html);
   win.document.close();
 }
+
+// ── MOONRAKER POLLING ─────────────────────────────────────────────────
+let prevPrinterStatus = null;
+let printerUnreachCount = 0;
+
+function updatePrinterDot(reachable, status) {
+  const dot = document.getElementById('printerDot');
+  if (!dot) return;
+  if (!reachable) {
+    dot.className = 'printer-dot ' + (printerUnreachCount >= 12 ? 'offline' : 'dim');
+    dot.title = 'Printer unreachable';
+  } else if (status === 'printing') {
+    dot.className = 'printer-dot printing';
+    dot.title = 'Printing';
+  } else {
+    dot.className = 'printer-dot idle';
+    dot.title = 'Printer idle (' + (status||'unknown') + ')';
+  }
+}
+
+async function pollPrinter() {
+  try {
+    const res = await fetch('/printer-status');
+    const ps  = await res.json();
+    const { status, reachable, print_duration } = ps;
+
+    if (reachable) { printerUnreachCount = 0; }
+    else           { printerUnreachCount++; }
+
+    updatePrinterDot(reachable, status);
+
+    if (reachable && activeProject) {
+      const wasPrinting = prevPrinterStatus === 'printing';
+      const isPrinting  = status === 'printing';
+
+      // First poll and already printing — punch in backdated
+      if (prevPrinterStatus === null && isPrinting && !isClockedIn(activeProject, 'fdm')) {
+        const backdateMs = Math.max(0, (print_duration || 0) * 1000);
+        if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
+        activeProject.fdmSessions.push({ id: genId(), start: Date.now() - backdateMs, end: null, auto: true });
+        saveData();
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
+        renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
+      }
+
+      // idle/unknown → printing — punch in
+      if (prevPrinterStatus !== null && !wasPrinting && isPrinting && !isClockedIn(activeProject, 'fdm')) {
+        if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
+        activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true });
+        saveData();
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
+        renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
+      }
+
+      // printing → idle/complete/error — punch out (auto sessions only)
+      if (wasPrinting && !isPrinting && isClockedIn(activeProject, 'fdm')) {
+        const sessions = activeProject.fdmSessions || [];
+        const lastIdx  = sessions.length - 1;
+        if (lastIdx >= 0 && sessions[lastIdx].auto && !sessions[lastIdx].end) {
+          sessions[lastIdx].end = Date.now();
+          saveData();
+          if (!hasAnyActive(activeProject)) clearInterval(timerInterval);
+          renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
+          pendingMaterial = { type: 'fdm', sessionIdx: lastIdx };
+          openMaterialModal('fdm', lastIdx);
+        }
+      }
+
+      prevPrinterStatus = status;
+    } else if (!reachable) {
+      // don't update prevPrinterStatus while unreachable — ignore blips
+    }
+
+    // Show/hide resume bar: printer printing but nothing tracking
+    updateResumeBar();
+
+  } catch (e) {
+    printerUnreachCount++;
+    updatePrinterDot(false, null);
+  }
+}
+
+function updateResumeBar() {
+  const bar = document.getElementById('fdmResumeBar');
+  if (!bar) return;
+  const printerPrinting = prevPrinterStatus === 'printing';
+  const notTracking     = !activeProject || !isClockedIn(activeProject, 'fdm');
+  bar.style.display = (printerPrinting && notTracking) ? 'flex' : 'none';
+}
+
+function resumePrintTracking() {
+  if (!activeProject) return;
+  if (isClockedIn(activeProject, 'fdm')) return; // already tracking
+  if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
+  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true });
+  saveData();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
+  renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
+  updateResumeBar();
+}
+
+setTimeout(() => { pollPrinter(); setInterval(pollPrinter, 5000); }, 1500);
 
 // ── INIT ──────────────────────────────────────────────────────────────
 loadSettings(); loadData(); updateRateLabels(); renderSidebar();
