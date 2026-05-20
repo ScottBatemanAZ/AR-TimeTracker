@@ -133,10 +133,14 @@ Only completed sessions are included (active sessions excluded from invoice tota
 ## Printer integration
 
 - **Hardware**: Neptune 4 Plus, Klipper + Moonraker, IP `192.168.0.74`
+- **Slicer**: OrcaSlicer (PrusaSlicer-based — embeds filament metadata in G-code)
+- **Printer UI**: Fluidd (Klipper web interface, separate from this tracker)
 - **Mapped to**: FDM track only
 - **Resin printer**: no network interface — no auto integration
-- Moonraker endpoint: `GET /printer/objects/query?print_stats`
+- Moonraker print_stats endpoint: `GET /printer/objects/query?print_stats`
 - Fields used: `state`, `filename`, `print_duration` (seconds), `filament_used` (mm extruded)
+- Moonraker metadata endpoint: `GET /server/files/metadata?filename={filename}`
+- Fields used: `filament_type`, `filament_name` (slicer-embedded, OrcaSlicer format)
 
 ---
 

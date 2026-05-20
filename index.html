@@ -1023,16 +1023,23 @@ function openMaterialModal(type,sessionIdx) {
   if(type==='fdm'){
     titleEl.textContent='FDM — Log Filament'; titleEl.className='modal-title fdm-color';
     const s=activeProject.fdmSessions[sessionIdx];
-    buildFilamentSelect(s.filamentType||'');
+    // Auto-select filament type: prefer already-saved, then match slicer type against library
+    let autoType = s.filamentType || '';
+    if (!autoType && (s.slicerFilamentType || s.slicerFilamentName)) {
+      const slicerStr = (s.slicerFilamentName || s.slicerFilamentType).toLowerCase();
+      const match = settings.filamentTypes.find(f => slicerStr.includes(f.name.toLowerCase()) || f.name.toLowerCase().includes(slicerStr));
+      if (match) autoType = match.name;
+    }
+    buildFilamentSelect(autoType);
     const moonrakerHint = document.getElementById('matMoonrakerHint');
     if (moonrakerHint) moonrakerHint.style.display = 'none';
-    if(s.filamentType){const ft=settings.filamentTypes.find(f=>f.name===s.filamentType); if(ft) document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||ft.costPerKg;}
+    if(autoType){const ft=settings.filamentTypes.find(f=>f.name===autoType); if(ft) document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||ft.costPerKg;}
     else{document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||'';}
     // Pre-fill grams: prefer already-saved value, then calculate from Moonraker mm
     if (s.filamentG) {
       document.getElementById('matGrams').value = s.filamentG;
     } else if (s.filamentUsedMm > 0) {
-      const ft = settings.filamentTypes.find(f => f.name === s.filamentType);
+      const ft = settings.filamentTypes.find(f => f.name === autoType);
       if (ft && ft.densityGPerCm3) {
         const g = filamentMmToGrams(s.filamentUsedMm, ft.densityGPerCm3);
         document.getElementById('matGrams').value = g.toFixed(2);
@@ -1446,7 +1453,7 @@ async function pollPrinter() {
   try {
     const res = await fetch('/printer-status');
     const ps  = await res.json();
-    const { status, reachable, print_duration, filament_used } = ps;
+    const { status, reachable, print_duration, filament_used, filament_type, filament_name } = ps;
 
     if (reachable) { printerUnreachCount = 0; }
     else           { printerUnreachCount++; }
@@ -1461,7 +1468,7 @@ async function pollPrinter() {
       if (prevPrinterStatus === null && isPrinting && !isClockedIn(activeProject, 'fdm')) {
         const backdateMs = Math.max(0, (print_duration || 0) * 1000);
         if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-        activeProject.fdmSessions.push({ id: genId(), start: Date.now() - backdateMs, end: null, auto: true });
+        activeProject.fdmSessions.push({ id: genId(), start: Date.now() - backdateMs, end: null, auto: true, slicerFilamentType: filament_type||'', slicerFilamentName: filament_name||'' });
         saveData();
         clearInterval(timerInterval);
         timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
@@ -1471,7 +1478,9 @@ async function pollPrinter() {
       // idle/unknown → printing — punch in
       if (prevPrinterStatus !== null && !wasPrinting && isPrinting && !isClockedIn(activeProject, 'fdm')) {
         if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-        activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true });
+        const slicerType = filament_type || '';
+        const slicerName = filament_name || '';
+        activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, slicerFilamentType: slicerType, slicerFilamentName: slicerName });
         saveData();
         clearInterval(timerInterval);
         timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
