@@ -444,6 +444,7 @@
           <input type="number" id="matGrams" step="0.01" min="0" placeholder="0.00" oninput="updateFdmPreview()" />
         </div>
       </div>
+      <div class="form-hint" id="matMoonrakerHint" style="margin-top:4px;color:var(--green-bright);display:none;"></div>
       <div class="form-hint preview" id="fdmCostPreview"></div>
       <div class="form-hint" id="matMachineHint" style="margin-top:4px;"></div>
     </div>
@@ -961,11 +962,34 @@ function buildResinSelect(currentType) {
     sel.appendChild(opt);
   });
 }
+function filamentMmToGrams(mm, densityGPerCm3) {
+  // 1.75mm filament: radius = 0.0875cm
+  return Math.PI * Math.pow(0.0875, 2) * (mm / 10) * densityGPerCm3;
+}
+
 function onFilamentTypeChange() {
-  const name=document.getElementById('matFilamentType').value;
-  const ft=settings.filamentTypes.find(f=>f.name===name);
-  if(ft) document.getElementById('matFilamentCostPerKg').value=ft.costPerKg;
+  const name = document.getElementById('matFilamentType').value;
+  const ft   = settings.filamentTypes.find(f => f.name === name);
+  if (ft) {
+    document.getElementById('matFilamentCostPerKg').value = ft.costPerKg;
+    // Recalculate grams from Moonraker mm if session has it and density is known
+    if (ft.densityGPerCm3 && pendingMaterial) {
+      const s = activeProject.fdmSessions[pendingMaterial.sessionIdx];
+      if (s && s.filamentUsedMm > 0) {
+        const g = filamentMmToGrams(s.filamentUsedMm, ft.densityGPerCm3);
+        document.getElementById('matGrams').value = g.toFixed(2);
+        showMoonrakerHint(s.filamentUsedMm, ft.densityGPerCm3, g);
+      }
+    }
+  }
   updateFdmPreview();
+}
+
+function showMoonrakerHint(mm, density, grams) {
+  const hint = document.getElementById('matMoonrakerHint');
+  if (!hint) return;
+  hint.textContent = '⬡ Moonraker: ' + Math.round(mm) + 'mm extruded × ' + density + ' g/cm³ = ' + grams.toFixed(2) + 'g (edit if needed)';
+  hint.style.display = 'block';
 }
 function onResinTypeChange() {
   const name=document.getElementById('matResinType').value;
@@ -1000,9 +1024,29 @@ function openMaterialModal(type,sessionIdx) {
     titleEl.textContent='FDM — Log Filament'; titleEl.className='modal-title fdm-color';
     const s=activeProject.fdmSessions[sessionIdx];
     buildFilamentSelect(s.filamentType||'');
+    const moonrakerHint = document.getElementById('matMoonrakerHint');
+    if (moonrakerHint) moonrakerHint.style.display = 'none';
     if(s.filamentType){const ft=settings.filamentTypes.find(f=>f.name===s.filamentType); if(ft) document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||ft.costPerKg;}
     else{document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||'';}
-    document.getElementById('matGrams').value=s.filamentG||'';
+    // Pre-fill grams: prefer already-saved value, then calculate from Moonraker mm
+    if (s.filamentG) {
+      document.getElementById('matGrams').value = s.filamentG;
+    } else if (s.filamentUsedMm > 0) {
+      const ft = settings.filamentTypes.find(f => f.name === s.filamentType);
+      if (ft && ft.densityGPerCm3) {
+        const g = filamentMmToGrams(s.filamentUsedMm, ft.densityGPerCm3);
+        document.getElementById('matGrams').value = g.toFixed(2);
+        showMoonrakerHint(s.filamentUsedMm, ft.densityGPerCm3, g);
+      } else {
+        document.getElementById('matGrams').value = '';
+        if (moonrakerHint) {
+          moonrakerHint.textContent = '⬡ Moonraker: ' + Math.round(s.filamentUsedMm) + 'mm extruded — select a filament type with density to auto-calculate grams';
+          moonrakerHint.style.display = 'block';
+        }
+      }
+    } else {
+      document.getElementById('matGrams').value = '';
+    }
     const hrs=s.end?((s.end-s.start)/3600000):0;
     document.getElementById('matMachineHint').textContent=hrs.toFixed(2)+'h × $'+settings.fdmRate+'/hr = '+fmtMoney(hrs*settings.fdmRate)+' machine cost';
     document.getElementById('matSaveBtn').textContent='Log Filament';
@@ -1402,7 +1446,7 @@ async function pollPrinter() {
   try {
     const res = await fetch('/printer-status');
     const ps  = await res.json();
-    const { status, reachable, print_duration } = ps;
+    const { status, reachable, print_duration, filament_used } = ps;
 
     if (reachable) { printerUnreachCount = 0; }
     else           { printerUnreachCount++; }
@@ -1440,6 +1484,7 @@ async function pollPrinter() {
         const lastIdx  = sessions.length - 1;
         if (lastIdx >= 0 && sessions[lastIdx].auto && !sessions[lastIdx].end) {
           sessions[lastIdx].end = Date.now();
+          if (filament_used > 0) sessions[lastIdx].filamentUsedMm = filament_used;
           saveData();
           if (!hasAnyActive(activeProject)) clearInterval(timerInterval);
           renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
