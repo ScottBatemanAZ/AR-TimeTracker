@@ -783,19 +783,27 @@ function renderProject() {
   ['design','fdm','resin'].forEach(renderSessions);
   renderReceipts();
 }
+function toMatCode(name) {
+  if (!name) return '';
+  // Strip spaces/special chars and take first 3, uppercase
+  return name.replace(/[^A-Za-z0-9]/g,'').slice(0,3).toUpperCase();
+}
+
 function matCodeFor(type) {
-  if (!activeProject) return '';
-  const sessions = activeProject[type+'Sessions'] || [];
-  // Check active session first, then last completed
-  const s = sessions.length ? sessions[sessions.length-1] : null;
-  if (!s) return '';
   if (type === 'fdm') {
-    const name = s.filamentType || s.slicerFilamentType || s.slicerFilamentName || '';
-    return name ? name.replace(/[^A-Za-z0-9]/g,'').slice(0,3).toUpperCase() : '';
+    // Prefer live Moonraker metadata (current file), fall back to last session
+    if (liveFilamentType) return toMatCode(liveFilamentType);
+    if (!activeProject) return '';
+    const sessions = activeProject.fdmSessions || [];
+    const s = sessions.length ? sessions[sessions.length-1] : null;
+    if (!s) return '';
+    return toMatCode(s.filamentType || s.slicerFilamentType || s.slicerFilamentName || '');
   }
   if (type === 'resin') {
-    const name = s.resinType || '';
-    return name ? name.replace(/[^A-Za-z0-9]/g,'').slice(0,3).toUpperCase() : '';
+    if (!activeProject) return '';
+    const sessions = activeProject.resinSessions || [];
+    const s = sessions.length ? sessions[sessions.length-1] : null;
+    return s ? toMatCode(s.resinType || '') : '';
   }
   return '';
 }
@@ -1473,6 +1481,7 @@ function openFilamentInfo() {
 // ── MOONRAKER POLLING ─────────────────────────────────────────────────
 let prevPrinterStatus = null;
 let printerUnreachCount = 0;
+let liveFilamentType = '';   // latest from Moonraker metadata
 
 function updatePrinterDot(reachable, status) {
   const dot = document.getElementById('printerDot');
@@ -1497,6 +1506,13 @@ async function pollPrinter() {
 
     if (reachable) { printerUnreachCount = 0; }
     else           { printerUnreachCount++; }
+
+    // Keep live filament type fresh from slicer metadata
+    if (reachable && (filament_type || filament_name)) {
+      liveFilamentType = filament_name || filament_type || '';
+      const codeEl = document.getElementById('fdmMatCode');
+      if (codeEl) codeEl.textContent = matCodeFor('fdm');
+    }
 
     updatePrinterDot(reachable, status);
 
