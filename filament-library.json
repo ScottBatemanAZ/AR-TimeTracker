@@ -1,0 +1,362 @@
+{
+  "_comment": "Filament reference library. Density values are material constants (g/cm³). Costs are rough market midpoints in USD/kg — override with your actual purchase price.",
+  "materials": [
+    {
+      "name": "PLA",
+      "full": "Polylactic Acid",
+      "densityGPerCm3": 1.24,
+      "tags": ["beginner", "common"],
+      "typicalCostPerKg": 20
+    },
+    {
+      "name": "PLA+",
+      "full": "PLA Plus / Pro",
+      "densityGPerCm3": 1.24,
+      "tags": ["beginner", "common"],
+      "typicalCostPerKg": 25
+    },
+    {
+      "name": "PLA-CF",
+      "full": "PLA Carbon Fiber",
+      "densityGPerCm3": 1.30,
+      "tags": ["composite", "stiff"],
+      "typicalCostPerKg": 45
+    },
+    {
+      "name": "PLA-HS",
+      "full": "PLA High Speed",
+      "densityGPerCm3": 1.24,
+      "tags": ["beginner", "common"],
+      "typicalCostPerKg": 28
+    },
+    {
+      "name": "PLA Silk",
+      "full": "PLA Silk / Shiny",
+      "densityGPerCm3": 1.24,
+      "tags": ["aesthetic"],
+      "typicalCostPerKg": 28
+    },
+    {
+      "name": "PLA-HT",
+      "full": "PLA High Temp",
+      "densityGPerCm3": 1.24,
+      "tags": ["high-heat"],
+      "typicalCostPerKg": 35
+    },
+    {
+      "name": "PLA-HT-GF",
+      "full": "PLA High Temp Glass Fiber",
+      "densityGPerCm3": 1.35,
+      "tags": ["composite", "high-heat"],
+      "typicalCostPerKg": 55
+    },
+    {
+      "name": "LW-PLA",
+      "full": "Lightweight PLA (foaming)",
+      "densityGPerCm3": 0.80,
+      "tags": ["specialty", "lightweight"],
+      "typicalCostPerKg": 45
+    },
+    {
+      "name": "PHA",
+      "full": "Polyhydroxyalkanoates",
+      "densityGPerCm3": 1.25,
+      "tags": ["eco", "biodegradable"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "PETG",
+      "full": "Polyethylene Terephthalate Glycol",
+      "densityGPerCm3": 1.27,
+      "tags": ["common", "durable"],
+      "typicalCostPerKg": 25
+    },
+    {
+      "name": "PETG-CF",
+      "full": "PETG Carbon Fiber",
+      "densityGPerCm3": 1.30,
+      "tags": ["composite", "stiff"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "PCTG",
+      "full": "Polycyclohexylene Terephthalate Glycol",
+      "densityGPerCm3": 1.27,
+      "tags": ["durable", "chemical-resistant"],
+      "typicalCostPerKg": 40
+    },
+    {
+      "name": "CPE",
+      "full": "Chlorinated Polyethylene",
+      "densityGPerCm3": 1.28,
+      "tags": ["chemical-resistant", "durable"],
+      "typicalCostPerKg": 45
+    },
+    {
+      "name": "PET-CF",
+      "full": "PET Carbon Fiber",
+      "densityGPerCm3": 1.30,
+      "tags": ["composite", "stiff"],
+      "typicalCostPerKg": 60
+    },
+    {
+      "name": "PVB",
+      "full": "Polyvinyl Butyral",
+      "densityGPerCm3": 1.20,
+      "tags": ["specialty", "smoothable"],
+      "typicalCostPerKg": 60
+    },
+    {
+      "name": "ABS",
+      "full": "Acrylonitrile Butadiene Styrene",
+      "densityGPerCm3": 1.04,
+      "tags": ["common", "high-heat"],
+      "typicalCostPerKg": 22
+    },
+    {
+      "name": "ABS-CF",
+      "full": "ABS Carbon Fiber",
+      "densityGPerCm3": 1.11,
+      "tags": ["composite", "stiff"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "ABS-GF",
+      "full": "ABS Glass Fiber",
+      "densityGPerCm3": 1.20,
+      "tags": ["composite", "stiff"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "ABS V0",
+      "full": "ABS Flame Retardant (UL94 V0)",
+      "densityGPerCm3": 1.20,
+      "tags": ["specialty", "flame-retardant"],
+      "typicalCostPerKg": 80
+    },
+    {
+      "name": "ASA",
+      "full": "Acrylonitrile Styrene Acrylate",
+      "densityGPerCm3": 1.07,
+      "tags": ["uv-resistant", "outdoor"],
+      "typicalCostPerKg": 28
+    },
+    {
+      "name": "ASA-CF",
+      "full": "ASA Carbon Fiber",
+      "densityGPerCm3": 1.15,
+      "tags": ["composite", "uv-resistant"],
+      "typicalCostPerKg": 55
+    },
+    {
+      "name": "ASA-GF",
+      "full": "ASA Glass Fiber",
+      "densityGPerCm3": 1.25,
+      "tags": ["composite", "uv-resistant"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "LW-ASA",
+      "full": "Lightweight ASA (foaming)",
+      "densityGPerCm3": 0.75,
+      "tags": ["specialty", "lightweight", "uv-resistant"],
+      "typicalCostPerKg": 60
+    },
+    {
+      "name": "TPU 95A",
+      "full": "Thermoplastic Polyurethane 95A",
+      "densityGPerCm3": 1.21,
+      "tags": ["flexible", "common"],
+      "typicalCostPerKg": 35
+    },
+    {
+      "name": "TPU 87A",
+      "full": "Thermoplastic Polyurethane 87A",
+      "densityGPerCm3": 1.20,
+      "tags": ["flexible", "soft"],
+      "typicalCostPerKg": 40
+    },
+    {
+      "name": "TPU-GF",
+      "full": "TPU Glass Fiber",
+      "densityGPerCm3": 1.35,
+      "tags": ["flexible", "composite"],
+      "typicalCostPerKg": 60
+    },
+    {
+      "name": "TPE",
+      "full": "Thermoplastic Elastomer",
+      "densityGPerCm3": 1.20,
+      "tags": ["flexible", "soft"],
+      "typicalCostPerKg": 42
+    },
+    {
+      "name": "PEBA",
+      "full": "Polyether Block Amide",
+      "densityGPerCm3": 1.01,
+      "tags": ["flexible", "high-performance"],
+      "typicalCostPerKg": 150
+    },
+    {
+      "name": "Nylon PA6",
+      "full": "Polyamide 6",
+      "densityGPerCm3": 1.12,
+      "tags": ["durable", "chemical-resistant"],
+      "typicalCostPerKg": 45
+    },
+    {
+      "name": "Nylon PA12",
+      "full": "Polyamide 12",
+      "densityGPerCm3": 1.01,
+      "tags": ["durable", "flexible"],
+      "typicalCostPerKg": 55
+    },
+    {
+      "name": "Nylon PA6-CF",
+      "full": "PA6 Carbon Fiber",
+      "densityGPerCm3": 1.10,
+      "tags": ["composite", "stiff", "durable"],
+      "typicalCostPerKg": 75
+    },
+    {
+      "name": "CoPA",
+      "full": "Copolyamide",
+      "densityGPerCm3": 1.08,
+      "tags": ["durable", "chemical-resistant"],
+      "typicalCostPerKg": 70
+    },
+    {
+      "name": "PAHT-CF",
+      "full": "High-Temp Polyamide Carbon Fiber",
+      "densityGPerCm3": 1.10,
+      "tags": ["composite", "high-heat", "stiff"],
+      "typicalCostPerKg": 100
+    },
+    {
+      "name": "PA-CF",
+      "full": "Polyamide Carbon Fiber (generic)",
+      "densityGPerCm3": 1.10,
+      "tags": ["composite", "stiff"],
+      "typicalCostPerKg": 80
+    },
+    {
+      "name": "PC",
+      "full": "Polycarbonate",
+      "densityGPerCm3": 1.20,
+      "tags": ["high-heat", "durable"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "PC-CF",
+      "full": "Polycarbonate Carbon Fiber",
+      "densityGPerCm3": 1.30,
+      "tags": ["composite", "high-heat", "stiff"],
+      "typicalCostPerKg": 90
+    },
+    {
+      "name": "PC-ABS",
+      "full": "Polycarbonate / ABS Blend",
+      "densityGPerCm3": 1.10,
+      "tags": ["durable", "high-heat"],
+      "typicalCostPerKg": 45
+    },
+    {
+      "name": "HIPS",
+      "full": "High Impact Polystyrene",
+      "densityGPerCm3": 1.03,
+      "tags": ["support", "dissolvable"],
+      "typicalCostPerKg": 25
+    },
+    {
+      "name": "PVA",
+      "full": "Polyvinyl Alcohol",
+      "densityGPerCm3": 1.19,
+      "tags": ["support", "dissolvable", "water-soluble"],
+      "typicalCostPerKg": 80
+    },
+    {
+      "name": "BVOH",
+      "full": "Butenediol Vinyl Alcohol Copolymer",
+      "densityGPerCm3": 1.23,
+      "tags": ["support", "dissolvable", "water-soluble"],
+      "typicalCostPerKg": 100
+    },
+    {
+      "name": "PP",
+      "full": "Polypropylene",
+      "densityGPerCm3": 0.90,
+      "tags": ["chemical-resistant", "lightweight"],
+      "typicalCostPerKg": 40
+    },
+    {
+      "name": "HDPE",
+      "full": "High-Density Polyethylene",
+      "densityGPerCm3": 0.95,
+      "tags": ["chemical-resistant", "specialty"],
+      "typicalCostPerKg": 50
+    },
+    {
+      "name": "PBT",
+      "full": "Polybutylene Terephthalate",
+      "densityGPerCm3": 1.31,
+      "tags": ["high-heat", "chemical-resistant"],
+      "typicalCostPerKg": 60
+    },
+    {
+      "name": "PPS-CF",
+      "full": "Polyphenylene Sulfide Carbon Fiber",
+      "densityGPerCm3": 1.35,
+      "tags": ["composite", "high-heat", "chemical-resistant"],
+      "typicalCostPerKg": 300
+    },
+    {
+      "name": "PPS-GF",
+      "full": "Polyphenylene Sulfide Glass Fiber",
+      "densityGPerCm3": 1.45,
+      "tags": ["composite", "high-heat", "chemical-resistant"],
+      "typicalCostPerKg": 280
+    },
+    {
+      "name": "PPA-CF",
+      "full": "Polyphthalamide Carbon Fiber",
+      "densityGPerCm3": 1.15,
+      "tags": ["composite", "high-heat"],
+      "typicalCostPerKg": 200
+    },
+    {
+      "name": "PEEK",
+      "full": "Polyether Ether Ketone",
+      "densityGPerCm3": 1.32,
+      "tags": ["high-performance", "high-heat", "chemical-resistant"],
+      "typicalCostPerKg": 300
+    },
+    {
+      "name": "PEI (ULTEM)",
+      "full": "Polyetherimide",
+      "densityGPerCm3": 1.27,
+      "tags": ["high-performance", "high-heat"],
+      "typicalCostPerKg": 250
+    },
+    {
+      "name": "Wood Fill",
+      "full": "PLA + Wood Fiber",
+      "densityGPerCm3": 1.28,
+      "tags": ["aesthetic", "composite"],
+      "typicalCostPerKg": 32
+    },
+    {
+      "name": "Metal Fill",
+      "full": "PLA + Metal Powder",
+      "densityGPerCm3": 2.90,
+      "tags": ["aesthetic", "composite", "heavy"],
+      "typicalCostPerKg": 80
+    },
+    {
+      "name": "PolyCast",
+      "full": "Castable / Investment Casting Filament",
+      "densityGPerCm3": 1.14,
+      "tags": ["specialty", "castable"],
+      "typicalCostPerKg": 120
+    }
+  ]
+}

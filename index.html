@@ -176,13 +176,13 @@
   .settings-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
   .type-list { margin-bottom: 8px; min-height: 20px; }
   .type-row { display: grid; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
-  .type-row.filament-row { grid-template-columns: 1fr 72px auto; gap: 6px; }
+  .type-row.filament-row { grid-template-columns: 1fr 72px 58px auto; gap: 6px; }
   .type-row.resin-row    { grid-template-columns: 1fr 60px 58px auto; gap: 6px; }
   .type-row-name    { color: var(--text); }
   .type-row-cost    { color: var(--green-bright); text-align: right; font-size: 10px; }
   .type-row-density { color: var(--blue-bright); text-align: right; font-size: 10px; }
   .type-add-row { display: grid; gap: 5px; margin-top: 6px; }
-  .type-add-row.filament-add { grid-template-columns: 1fr 72px auto; }
+  .type-add-row.filament-add { grid-template-columns: 1fr 72px 58px auto; }
   .type-add-row.resin-add    { grid-template-columns: 1fr 60px 58px auto; }
   .type-add-btn { padding: 4px 8px; background: none; border: 1px solid var(--border2); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; white-space: nowrap; transition: all .15s; }
   .type-add-btn:hover { border-color: var(--amber); color: var(--amber); }
@@ -499,14 +499,21 @@
       </div>
     </div>
 
-    <div class="settings-section">Filament Types &amp; Costs</div>
-    <div style="display:grid;grid-template-columns:1fr 72px 24px;gap:6px;margin-bottom:4px;">
-      <span class="col-header">Name</span><span class="col-header">$/kg</span><span></span>
+    <div class="settings-section">Filament Types, Costs &amp; Density</div>
+    <div style="display:grid;grid-template-columns:1fr 72px 58px 24px;gap:6px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">$/kg</span><span class="col-header">g/cm³</span><span></span>
     </div>
     <div class="type-list" id="filamentTypesList"></div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      <select id="filamentLibraryPicker" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:4px 6px;">
+        <option value="">— add from library —</option>
+      </select>
+      <button class="type-add-btn" onclick="addFromLibrary()" title="Add selected material">+</button>
+    </div>
     <div class="type-add-row filament-add">
-      <input type="text" id="newFilamentName" placeholder="e.g. CF-PLA" />
+      <input type="text" id="newFilamentName" placeholder="Custom name" />
       <input type="number" id="newFilamentCost" placeholder="$/kg" step="0.50" min="0" style="width:100%;" />
+      <input type="number" id="newFilamentDensity" placeholder="g/cm³" step="0.01" min="0" style="width:100%;" />
       <button class="type-add-btn" onclick="addFilamentType()">+</button>
     </div>
 
@@ -534,9 +541,13 @@
 const DEFAULT_SETTINGS = {
   laborRate: 40, fdmRate: 5, resinRate: 2,
   filamentTypes: [
-    {name:'PLA',  costPerKg:20}, {name:'PLA+', costPerKg:25},
-    {name:'Wood', costPerKg:32}, {name:'TPU',  costPerKg:38},
-    {name:'ASA',  costPerKg:28}, {name:'ABS',  costPerKg:22}
+    {name:'PLA',      costPerKg:20, densityGPerCm3:1.24},
+    {name:'PLA+',     costPerKg:25, densityGPerCm3:1.24},
+    {name:'PETG',     costPerKg:25, densityGPerCm3:1.27},
+    {name:'ABS',      costPerKg:22, densityGPerCm3:1.04},
+    {name:'ASA',      costPerKg:28, densityGPerCm3:1.07},
+    {name:'TPU 95A',  costPerKg:35, densityGPerCm3:1.21},
+    {name:'Wood Fill',costPerKg:32, densityGPerCm3:1.28}
   ],
   resinTypes: [
     {name:'Standard',       costPerKg:13, densityGPerMl:1.10},
@@ -589,6 +600,7 @@ function openSettings() {
   document.getElementById('setResinRate').value = settings.resinRate;
   renderFilamentTypesList();
   renderResinTypesList();
+  populateFilamentLibraryPicker();
   document.getElementById('settingsModal').classList.add('open');
 }
 function renderFilamentTypesList() {
@@ -598,17 +610,20 @@ function renderFilamentTypesList() {
     `<div class="type-row filament-row">
       <span class="type-row-name">${esc(ft.name)}</span>
       <span class="type-row-cost">$${ft.costPerKg}/kg</span>
+      <span class="type-row-cost" style="color:var(--dim)">${ft.densityGPerCm3||'—'}</span>
       <button class="type-del-btn" onclick="removeFilamentType(${i})">✕</button>
     </div>`).join('');
 }
 function removeFilamentType(i) { settings.filamentTypes.splice(i,1); renderFilamentTypesList(); }
 function addFilamentType() {
-  const name = document.getElementById('newFilamentName').value.trim();
-  const cost = parseFloat(document.getElementById('newFilamentCost').value);
+  const name    = document.getElementById('newFilamentName').value.trim();
+  const cost    = parseFloat(document.getElementById('newFilamentCost').value);
+  const density = parseFloat(document.getElementById('newFilamentDensity').value);
   if (!name || isNaN(cost) || cost < 0) return;
-  settings.filamentTypes.push({name, costPerKg:cost});
+  settings.filamentTypes.push({name, costPerKg:cost, densityGPerCm3: isNaN(density)?null:density});
   document.getElementById('newFilamentName').value='';
   document.getElementById('newFilamentCost').value='';
+  document.getElementById('newFilamentDensity').value='';
   renderFilamentTypesList();
 }
 function renderResinTypesList() {
@@ -1302,6 +1317,53 @@ function generateInvoice(withMarkup) {
   win.document.close();
 }
 
+// ── FILAMENT LIBRARY ──────────────────────────────────────────────────
+let filamentLibrary = [];
+
+async function loadFilamentLibrary() {
+  try {
+    const res = await fetch('/filament-library.json');
+    const data = await res.json();
+    filamentLibrary = data.materials || [];
+    // Backfill density on any saved filament types that lack it
+    let changed = false;
+    settings.filamentTypes.forEach(ft => {
+      if (!ft.densityGPerCm3) {
+        const match = filamentLibrary.find(m => m.name.toLowerCase() === ft.name.toLowerCase());
+        if (match) { ft.densityGPerCm3 = match.densityGPerCm3; changed = true; }
+      }
+    });
+    if (changed) saveSettings();
+    populateFilamentLibraryPicker();
+  } catch(e) { /* library unavailable — no problem */ }
+}
+
+function populateFilamentLibraryPicker() {
+  const sel = document.getElementById('filamentLibraryPicker');
+  if (!sel) return;
+  const existing = new Set(settings.filamentTypes.map(f => f.name.toLowerCase()));
+  sel.innerHTML = '<option value="">— add from library —</option>';
+  filamentLibrary
+    .filter(m => !existing.has(m.name.toLowerCase()))
+    .forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name;
+      opt.textContent = m.name + ' — ' + m.full + '  ('+m.densityGPerCm3+' g/cm³)';
+      sel.appendChild(opt);
+    });
+}
+
+function addFromLibrary() {
+  const sel = document.getElementById('filamentLibraryPicker');
+  if (!sel || !sel.value) return;
+  const mat = filamentLibrary.find(m => m.name === sel.value);
+  if (!mat) return;
+  if (settings.filamentTypes.find(f => f.name.toLowerCase() === mat.name.toLowerCase())) return;
+  settings.filamentTypes.push({ name: mat.name, costPerKg: mat.typicalCostPerKg, densityGPerCm3: mat.densityGPerCm3 });
+  renderFilamentTypesList();
+  populateFilamentLibraryPicker();
+}
+
 // ── MOONRAKER POLLING ─────────────────────────────────────────────────
 let prevPrinterStatus = null;
 let printerUnreachCount = 0;
@@ -1408,7 +1470,7 @@ function resumePrintTracking() {
 setTimeout(() => { pollPrinter(); setInterval(pollPrinter, 5000); }, 1500);
 
 // ── INIT ──────────────────────────────────────────────────────────────
-loadSettings(); loadData(); updateRateLabels(); renderSidebar();
+loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary();
 if(data.projects.length>0) selectProject(data.projects[0].id);
 </script>
 </body>
