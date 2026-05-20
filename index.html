@@ -81,7 +81,7 @@
   .mat-code { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .08em; line-height: 1; margin-bottom: 2px; opacity: .85; }
   .mat-code.fdm-code   { color: var(--green-bright); }
   .mat-code.resin-code { color: var(--blue-bright); }
-  .design-subtype-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-bottom: 2px; }
+  .design-subtype-label { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .08em; line-height: 1; min-height: 17px; margin-bottom: 2px; opacity: .85; text-transform: uppercase; }
   .design-subtype-label.designing     { color: var(--accent); }
   .design-subtype-label.modeling      { color: #a077dd; }
   .design-subtype-label.post-processing { color: #c4a0f0; }
@@ -208,6 +208,7 @@
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .app-footer { flex-shrink: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 5px 18px; display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: .05em; }
 </style>
 </head>
 <body>
@@ -374,6 +375,10 @@
         </div>
       </div>
     </div>
+    <footer class="app-footer">
+      <span>© 2025 Azazel's Razer, LLC &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:var(--dim);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--dim)'">Claude Code (Sonnet 4.6)</a></span>
+      <span id="footerVersion">v8.0</span>
+    </footer>
   </div>
 </div>
 

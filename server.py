@@ -14,6 +14,8 @@ import time
 
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
+SERVER_VERSION  = "1.0"
+TRACKER_VERSION = "8.0"
 MOONRAKER_IP = "192.168.0.74"
 MOONRAKER_URL      = f"http://{MOONRAKER_IP}/printer/objects/query?print_stats"
 MOONRAKER_META_URL = f"http://{MOONRAKER_IP}/server/files/metadata?filename={{filename}}"
@@ -166,6 +168,7 @@ signal.signal(signal.SIGINT,  shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
 print(f"\n  Azazel's Razer Time Tracker")
+print(f"  Server v{SERVER_VERSION} running AR Tracker v{TRACKER_VERSION}")
 print(f"  Running at http://localhost:{PORT}")
 print(f"  Moonraker polling: {MOONRAKER_IP} every {POLL_INTERVAL}s")
 print(f"  Press Ctrl+C to stop\n")
