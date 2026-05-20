@@ -208,7 +208,7 @@
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-  .app-footer { flex-shrink: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 5px 18px; display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: .05em; }
+  .app-footer { flex-shrink: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: .05em; }
 </style>
 </head>
 <body>
@@ -242,7 +242,7 @@
         </div>
         <div class="topbar-actions">
           <button class="btn" onclick="editProject()">Edit</button>
-          <button class="btn btn-export" onclick="openExportModal()">Export Invoice</button>
+          <button class="btn btn-export" onclick="openExportModal()">Export</button>
           <button class="btn btn-danger" onclick="deleteProject()">Delete</button>
         </div>
       </div>
@@ -377,7 +377,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 Azazel's Razer, LLC &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:var(--dim);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--dim)'">Claude Code (Sonnet 4.6)</a></span>
-      <span id="footerVersion">v8.0</span>
+      <span id="footerVersion">v8.2</span>
     </footer>
   </div>
 </div>
@@ -404,8 +404,9 @@
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('exportModal')">Cancel</button>
-      <button class="btn-create" onclick="generateInvoice(false)">Export — Actual</button>
-      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Export — + Markup</button>
+      <button class="btn-create" onclick="generateInvoice(false)">Invoice — Actual</button>
+      <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Invoice — + Markup</button>
+      <button class="btn-create" style="background:rgba(93,202,165,.08);border-color:rgba(93,202,165,.5);color:var(--green-bright);" onclick="exportTrackingLog()">Tracking Log (.ods)</button>
     </div>
   </div>
 </div>
@@ -1495,6 +1496,32 @@ function generateInvoice(withMarkup) {
   if (!win) { alert('Pop-up blocked — allow pop-ups for localhost.'); return; }
   win.document.write(html);
   win.document.close();
+}
+
+// ── ODS EXPORT ───────────────────────────────────────────────────────
+async function exportTrackingLog() {
+  if (!activeProject) return;
+  closeModal('exportModal');
+  const markupPct = parseFloat(document.getElementById('exportMarkupPct').value) || 3;
+  try {
+    const res = await fetch('/generate-ods', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: activeProject, settings, markupPct })
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    const safe = activeProject.name.replace(/[^A-Za-z0-9_-]/g, '_');
+    a.download = `AR-TrackingLog-${safe}.ods`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('ODS export failed: ' + e.message + '\n\nMake sure the server is running.');
+  }
 }
 
 // ── FILAMENT LIBRARY ──────────────────────────────────────────────────
