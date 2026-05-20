@@ -248,12 +248,15 @@
 
       <div class="clock-area">
         <div class="clock-track">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;">
           <button class="punch-btn design" id="designBtn" onclick="togglePunch('design')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
             </svg>
             <span id="designLabel">Design</span>
           </button>
+          <div id="designSubLabel" class="design-subtype-label"></div>
+          </div>
           <div class="track-info">
             <div class="track-label design-label">Design Time</div>
             <div class="track-rate" id="designRateLabel"></div>
@@ -384,7 +387,7 @@
     </div>
     <div class="form-row-2">
       <div><label class="form-label">Invoice #</label><input type="text" id="exportInvoiceNum" /></div>
-      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="1.5" step="0.1" min="0" /></div>
+      <div><label class="form-label">Markup %</label><input type="number" id="exportMarkupPct" value="3" step="0.1" min="0" /></div>
     </div>
     <div class="form-row-2">
       <div><label class="form-label">Invoice Date</label><input type="date" id="exportDate" /></div>
@@ -440,6 +443,21 @@
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('manualModal')">Cancel</button>
       <button class="btn-create" onclick="saveManualTime()">Log Time</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUBTYPE MODAL -->
+<div class="modal-backdrop" id="subtypeModal">
+  <div class="modal" style="width:320px;">
+    <div class="modal-title" id="subtypeModalTitle">What are you working on?</div>
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <button class="subtype-btn" onclick="confirmSubtype('designing')" style="padding:10px 12px;font-size:11px;">Designing</button>
+      <button class="subtype-btn" onclick="confirmSubtype('modeling')" style="padding:10px 12px;font-size:11px;">Modeling / CAD</button>
+      <button class="subtype-btn" onclick="confirmSubtype('post-processing')" style="padding:10px 12px;font-size:11px;">Post-Processing</button>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:14px;">
+      <button class="btn" onclick="closeModal('subtypeModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -824,6 +842,26 @@ function renderClock(type) {
   // Material code under icon (FDM + Resin only)
   const codeEl = document.getElementById(type+'MatCode');
   if (codeEl) codeEl.textContent = matCodeFor(type);
+  // Subtype code under Design button
+  if (type === 'design') {
+    const labelEl = document.getElementById('designSubLabel');
+    if (labelEl) {
+      if (ci) {
+        const last = p.designSessions[p.designSessions.length-1];
+        const sub = last.designSubtype || '';
+        labelEl.textContent = SUBTYPE_CODES[sub] || '—';
+        labelEl.className = 'design-subtype-label' + (sub ? ' ' + sub : '');
+        labelEl.title = sub ? sub.replace(/-/g,' ') + ' — click to switch' : 'click to set work type';
+        labelEl.style.cursor = 'pointer';
+        labelEl.onclick = () => openSubtypePicker('switch');
+      } else {
+        labelEl.textContent = '';
+        labelEl.className = 'design-subtype-label';
+        labelEl.onclick = null;
+        labelEl.style.cursor = 'default';
+      }
+    }
+  }
 }
 function updateLiveStats() {
   const p=activeProject; if(!p) return;
@@ -859,6 +897,11 @@ function renderSessions(type) {
     if(type==='design'){
       const bill=(ms/3600000)*settings.laborRate;
       billHtml=active?'':`<div class="session-bill design-bill">${fmtMoney(bill)}</div>`;
+      if (s.designSubtype) {
+        const cls = esc(s.designSubtype);
+        const txt = esc(s.designSubtype.replace(/-/g,' '));
+        matHtml = `<div class="session-mat" style="padding-left:2px;"><span class="design-subtype-label ${cls}" style="font-size:9px;opacity:.85;">${txt}</span></div>`;
+      }
     } else if(type==='fdm'){
       const timeCost=(ms/3600000)*settings.fdmRate;
       billHtml=active?'':`<div class="session-bill fdm-bill">${fmtMoney(timeCost)}</div>`;
@@ -939,12 +982,44 @@ function togglePunch(type) {
     renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
     if(type==='fdm'||type==='resin'){pendingMaterial={type,sessionIdx};openMaterialModal(type,sessionIdx);}
   } else {
+    if (type === 'design') { openSubtypePicker('new'); return; }
     activeProject[key].push({id:genId(),start:Date.now(),end:null});
     saveData();
     clearInterval(timerInterval);
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
     renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
   }
+}
+
+// ── DESIGN SUBTYPE ────────────────────────────────────────────────────
+let subtypeModalMode = 'new'; // 'new' | 'switch'
+
+const SUBTYPE_CODES = { 'designing': 'DES', 'modeling': 'MDL', 'post-processing': 'PST' };
+
+function openSubtypePicker(mode) {
+  subtypeModalMode = mode || 'new';
+  document.getElementById('subtypeModalTitle').textContent =
+    mode === 'switch' ? 'Switch work type' : 'What are you working on?';
+  document.getElementById('subtypeModal').classList.add('open');
+  setTimeout(() => { const f = document.querySelector('#subtypeModal .subtype-btn'); if (f) f.focus(); }, 50);
+}
+
+function confirmSubtype(subtype) {
+  closeModal('subtypeModal');
+  if (!activeProject) return;
+  if (subtypeModalMode === 'switch') {
+    const sessions = activeProject.designSessions || [];
+    const last = sessions.length ? sessions[sessions.length-1] : null;
+    if (last && !last.end) { last.designSubtype = subtype; saveData(); renderClock('design'); renderSessions('design'); }
+    return;
+  }
+  // Punch in with chosen subtype
+  if (!activeProject.designSessions) activeProject.designSessions = [];
+  activeProject.designSessions.push({ id: genId(), start: Date.now(), end: null, designSubtype: subtype });
+  saveData();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
+  renderClock('design'); updateLiveStats(); renderSessions('design'); renderSidebar();
 }
 
 // ── MANUAL TIME ───────────────────────────────────────────────────────
@@ -1222,7 +1297,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal'].forEach(closeModal);pendingMaterial=null;manualType=null;}
+  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal'].forEach(closeModal);pendingMaterial=null;manualType=null;}
   if(e.key==='Enter'&&document.getElementById('projectModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA') saveProject();
   if(e.key==='Enter'&&document.getElementById('manualModal').classList.contains('open')) saveManualTime();
 });
@@ -1241,7 +1316,7 @@ function openExportModal() {
   document.getElementById('exportInvoiceNum').value = 'AR-' + ym + '-' + activeProject.id.slice(-4).toUpperCase();
   document.getElementById('exportDate').value = now.toISOString().slice(0,10);
   document.getElementById('exportDueDate').value = new Date(now.getTime()+30*24*3600*1000).toISOString().slice(0,10);
-  document.getElementById('exportMarkupPct').value = '1.5';
+  document.getElementById('exportMarkupPct').value = '3';
   document.getElementById('exportBillTo').value = '';
   document.getElementById('exportNotes').value = '';
   document.getElementById('exportModalProjectName').textContent = activeProject.name;
@@ -1256,7 +1331,7 @@ function generateInvoice(withMarkup) {
   const invoiceDate = document.getElementById('exportDate').value;
   const dueDate     = document.getElementById('exportDueDate').value;
   const notes       = document.getElementById('exportNotes').value.trim();
-  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 1.5;
+  const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 3;
 
   const dSessions = (proj.designSessions||[]).filter(s=>s.end);
   const fSessions = (proj.fdmSessions||[]).filter(s=>s.end);
@@ -1433,7 +1508,7 @@ async function loadFilamentLibrary() {
         if (match) { ft.densityGPerCm3 = match.densityGPerCm3; changed = true; }
       }
     });
-    if (changed) saveSettings();
+    if (changed) persistSettings();
     populateFilamentLibraryPicker();
   } catch(e) { /* library unavailable — no problem */ }
 }
