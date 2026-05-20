@@ -178,7 +178,9 @@ def generate_ods(payload):
 
     def row(*cells):   return '<table:table-row>' + ''.join(cells) + '</table:table-row>'
     def blank():       return '<table:table-row><table:table-cell/></table:table-row>'
-    def mksheet(name, rows): return f'<table:table table:name="{xe(name)}">{"".join(rows)}</table:table>'
+    def mksheet(name, rows, ncols=11):
+        cols = f'<table:table-column table:style-name="CO" table:number-columns-repeated="{ncols}"/>'
+        return f'<table:table table:name="{xe(name)}">{cols}{"".join(rows)}</table:table>'
 
     B, H = 'B', 'H'   # bold, header style shorthand
 
@@ -316,6 +318,9 @@ def generate_ods(payload):
 
     # ── ASSEMBLE XML ──────────────────────────────────────────────────────
     auto_styles = '''
+  <style:style style:name="CO" style:family="table-column">
+    <style:table-column-properties style:use-optimal-column-width="true"/>
+  </style:style>
   <style:style style:name="B" style:family="table-cell">
     <style:text-properties fo:font-weight="bold" fo:font-weight-asian="bold" fo:font-weight-complex="bold"/>
   </style:style>
@@ -336,11 +341,11 @@ def generate_ods(payload):
   <office:automatic-styles>{auto_styles}
   </office:automatic-styles>
   <office:body><office:spreadsheet>
-    {mksheet("Summary",  s_rows)}
-    {mksheet("Design",   d_rows)}
-    {mksheet("FDM",      f_rows)}
-    {mksheet("Resin",    r_rows)}
-    {mksheet("Receipts", rec_rows)}
+    {mksheet("Summary",  s_rows,  ncols=3)}
+    {mksheet("Design",   d_rows,  ncols=6)}
+    {mksheet("FDM",      f_rows,  ncols=10)}
+    {mksheet("Resin",    r_rows,  ncols=11)}
+    {mksheet("Receipts", rec_rows,ncols=2)}
   </office:spreadsheet></office:body>
 </office:document-content>'''
 
