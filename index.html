@@ -505,9 +505,10 @@
     </div>
     <div class="type-list" id="filamentTypesList"></div>
     <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-      <select id="filamentLibraryPicker" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:4px 6px;">
+      <select id="filamentLibraryPicker" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:4px 6px;" onchange="updateLibraryInfoBtn()">
         <option value="">— add from library —</option>
       </select>
+      <button id="filamentLibraryInfoBtn" onclick="openFilamentInfo()" title="View material profile on thenextlayer.com" style="display:none;font-family:var(--mono);font-size:10px;background:rgba(133,183,235,.1);border:1px solid rgba(133,183,235,.4);color:var(--blue-bright);border-radius:3px;padding:0 7px;cursor:pointer;height:24px;">?</button>
       <button class="type-add-btn" onclick="addFromLibrary()" title="Add selected material">+</button>
     </div>
     <div class="type-add-row filament-add">
@@ -1362,6 +1363,20 @@ function addFromLibrary() {
   settings.filamentTypes.push({ name: mat.name, costPerKg: mat.typicalCostPerKg, densityGPerCm3: mat.densityGPerCm3 });
   renderFilamentTypesList();
   populateFilamentLibraryPicker();
+}
+
+function updateLibraryInfoBtn() {
+  const sel = document.getElementById('filamentLibraryPicker');
+  const btn = document.getElementById('filamentLibraryInfoBtn');
+  if (!sel || !btn) return;
+  const mat = filamentLibrary.find(m => m.name === sel.value);
+  btn.style.display = (mat && mat.slug) ? 'block' : 'none';
+}
+
+function openFilamentInfo() {
+  const sel = document.getElementById('filamentLibraryPicker');
+  const mat = filamentLibrary.find(m => m.name === sel.value);
+  if (mat && mat.slug) window.open('https://filament.thenextlayer.com/?f=' + mat.slug, '_blank');
 }
 
 // ── MOONRAKER POLLING ─────────────────────────────────────────────────
