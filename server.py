@@ -391,6 +391,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(ods)
+                self.wfile.flush()
             except Exception as e:
                 import traceback; traceback.print_exc()
                 self.send_response(500)
