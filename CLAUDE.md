@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** v8.6 | **Server:** v1.1
+**Current version:** v8.7 | **Server:** v1.1
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -121,7 +121,7 @@ Project list (scrollable)        Design (btn+DES/MDL/PST code) | FDM (btn+MAT) |
 ─────────────────────────────  Stats Bar (6 cells)
 [⬇ Backup]  [⬆ Restore]        Panels (4 cols): Design | FDM | Resin | Receipts
                                ─────────────────────────────────────────────
-                               Footer: © AR LLC (link) | ❤️ Claude Code | v8.5
+                               Footer: © AR LLC (link) | ❤️ Claude Code | v8.7
 ```
 
 ---
@@ -194,7 +194,8 @@ All modals: `<div class="modal-backdrop" id="xModal">` → `.classList.add('open
 | `settingsModal` | Rates, filament types, resin types, filament library picker |
 | `manualModal` | Log manual time for any track |
 | `subtypeModal` | Design subtype picker (punch-in + mid-session switch) |
-| `materialModal` | Log filament (FDM) or resin after punch-out |
+| `materialModal` | Log filament (FDM) or resin after punch-out; includes session time editor |
+| `editSessionModal` | Edit start/end times + subtype for completed Design sessions |
 | `exportModal` | Invoice / ODS export options |
 
 ---
@@ -226,7 +227,7 @@ Design subtype colors: designing=`var(--accent)`, modeling=`#a077dd`, post-proce
 
 ```python
 SERVER_VERSION  = "1.1"
-TRACKER_VERSION = "8.5"
+TRACKER_VERSION = "8.7"
 MOONRAKER_IP    = "192.168.0.74"
 POLL_INTERVAL   = 5   # seconds
 
@@ -278,8 +279,14 @@ git pull && docker compose restart
 
 | Feature | Notes |
 |---|---|
-| **Editable session times** | Allow editing start/end timestamps on existing sessions |
 | **Proton Drive integration** | Waiting for public Proton Drive API |
+
+---
+
+## Claude Code workflow notes
+
+- **Version bumps**: After any significant feature or code update, automatically bump the version number (footer in `index.html`, `TRACKER_VERSION` in server.py if changed, `**Current version:**` and footer ref in this file, version history table) and commit. No need to ask first.
+- **CLAUDE.md updates**: Keep this file current after every session — move shipped features from Pending to version history, update modal table, fix any stale references.
 
 ---
 
@@ -306,3 +313,4 @@ git pull && docker compose restart
 | v8.4 | Docker support (Dockerfile, docker-compose.yml, .dockerignore) |
 | v8.5 | JSON backup/restore (sidebar footer buttons) |
 | v8.6 | Global stats bar above clock area — all-projects totals (hours + billed) |
+| v8.7 | Editable session times — time editor in material modal (FDM/Resin) + dedicated edit modal for Design sessions |
