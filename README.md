@@ -202,4 +202,4 @@ Made with [Claude Code](https://claude.ai/claude-code) by Anthropic — the enti
 
 ## License
 
-Personal / internal use. No formal license at this time — if you want to adapt this for your own shop, go for it.
+License TBD. All rights reserved in the meantime.
