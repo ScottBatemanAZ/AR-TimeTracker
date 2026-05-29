@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** v8.8 | **Server:** v1.1
+**Current version:** v9.0 | **Server:** v1.2
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -22,6 +22,7 @@ served by a Python stdlib HTTP server. No framework, no build step, no database.
 | `.dockerignore` | Excludes `.git`, `.claude`, `__pycache__` |
 | `ARLogo-FullTrans.png` | Full logo — dark bg, 100px tall in sidebar |
 | `ARSymbol.png` / `.ico` | Symbol variant for desktop shortcut |
+| `printers.json` | Printer config written by `/update-printers` — auto-created on first Settings save |
 | `CLAUDE.md` | This file |
 
 ---
@@ -121,7 +122,7 @@ Project list (scrollable)        Design (btn+DES/MDL/PST code) | FDM (btn+MAT) |
 ─────────────────────────────  Stats Bar (6 cells)
 [⬇ Backup]  [⬆ Restore]        Panels (4 cols): Design | FDM | Resin | Receipts
                                ─────────────────────────────────────────────
-                               Footer: © AR LLC (link) | ❤️ Claude Code | v8.8
+                               Footer: © AR LLC (link) | ❤️ Claude Code | v9.0
 ```
 
 ---
@@ -226,19 +227,24 @@ Design subtype colors: designing=`var(--accent)`, modeling=`#a077dd`, post-proce
 ## server.py structure
 
 ```python
-SERVER_VERSION  = "1.1"
-TRACKER_VERSION = "8.7"
-MOONRAKER_IP    = "192.168.0.74"
+SERVER_VERSION  = "1.2"
+TRACKER_VERSION = "9.0"
 POLL_INTERVAL   = 5   # seconds
 
+# Key globals:
+printers_config   # {fdm:[{id,name,moonrakerUrl}], resin:[...]} — hot-reloadable via /update-printers
+printer_states    # {printerId: {status,filename,...}} — keyed per-printer state
+
 # Key functions (in order):
-material_from_filename(filename)  # word-boundary regex fallback for OrcaSlicer
-fetch_metadata(filename)          # Moonraker metadata → falls back to filename parse
-poll_moonraker()                  # background thread, updates printer_state dict
-generate_ods(payload)             # builds ODS ZIP from project+settings JSON
+material_from_filename(filename)               # word-boundary regex fallback for OrcaSlicer
+fetch_metadata(printer_id, base_url, filename) # Moonraker metadata → falls back to filename parse
+poll_printer(printer)                          # polls one Moonraker instance, updates printer_states
+poll_all_printers()                            # background thread, loops all configured printers
+load_printers_config() / save_printers_config()# reads/writes printers.json
+generate_ods(payload)                          # builds ODS ZIP from project+settings JSON
 class Handler(SimpleHTTPRequestHandler):
-    do_POST()   # /generate-ods endpoint
-    do_GET()    # /printer-status + static files
+    do_POST()   # /update-printers + /generate-ods endpoints
+    do_GET()    # /printer-status (keyed by printer ID) + static files
     end_headers()  # injects Cache-Control: no-cache for .html/.js/.css/.json
     log_message()  # suppressed
 ```
@@ -315,3 +321,4 @@ git pull && docker compose restart
 | v8.6 | Global stats bar above clock area — all-projects totals (hours + billed) |
 | v8.7 | Editable session times — time editor in material modal (FDM/Resin) + dedicated edit modal for Design sessions |
 | v8.8 | Project status dots in sidebar — Active (green/pulses), On Hold (red), Complete (gray); click to cycle |
+| v9.0 | Multi-printer foundation — Stage 1: printer settings & data model; Stage 2: keyed server polling, /update-printers endpoint, printers.json |
