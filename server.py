@@ -17,13 +17,15 @@ from datetime import datetime
 
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
-SERVER_VERSION  = "1.1"
-TRACKER_VERSION = "8.2"
-MOONRAKER_IP = "192.168.0.74"
-MOONRAKER_URL      = f"http://{MOONRAKER_IP}/printer/objects/query?print_stats"
-MOONRAKER_META_URL = f"http://{MOONRAKER_IP}/server/files/metadata?filename={{filename}}"
-# print_stats returns: state, filename, print_duration, filament_used (mm)
-POLL_INTERVAL = 5  # seconds
+SERVER_VERSION  = "1.2"
+TRACKER_VERSION = "9.0"
+POLL_INTERVAL   = 5  # seconds
+
+PRINTERS_FILE = os.path.join(DIR, 'printers.json')
+DEFAULT_PRINTERS = {
+    'fdm':   [{'id': 'fdm-0', 'name': 'Neptune 4 Plus', 'moonrakerUrl': 'http://192.168.0.74'}],
+    'resin': []
+}
 
 # Known filament types to scan for in filenames (order matters — longer matches first)
 FILENAME_MATERIAL_PATTERNS = [
@@ -32,19 +34,41 @@ FILENAME_MATERIAL_PATTERNS = [
     'Nylon', 'PC', 'PVA', 'PP', 'PEEK',
 ]
 
-# Shared printer state — read by HTTP handler, written by poller thread
-printer_state = {
-    "status": "unknown",
-    "filename": "",
-    "print_duration": 0,
-    "filament_used": 0,
-    "filament_type": "",   # from G-code metadata or filename parse
-    "filament_name": "",   # from G-code metadata
-    "last_checked": 0,
-    "reachable": False
-}
-state_lock = threading.Lock()
-_last_meta_filename = ""   # track which file we last fetched metadata for
+# Printer config — loaded from printers.json, hot-reloaded via /update-printers
+printers_config = dict(DEFAULT_PRINTERS)
+config_lock = threading.Lock()
+
+# Per-printer state dict keyed by printer id
+printer_states = {}   # {printerId: {status, filename, ...}}
+states_lock = threading.Lock()
+_last_meta = {}       # {printerId: last_filename} — avoids redundant metadata fetches
+
+def _blank_state(name=''):
+    return {"name": name, "status": "unknown", "filename": "",
+            "print_duration": 0, "filament_used": 0,
+            "filament_type": "", "filament_name": "",
+            "last_checked": 0, "reachable": False}
+
+def load_printers_config():
+    global printers_config
+    try:
+        with open(PRINTERS_FILE) as f:
+            data = json.load(f)
+        with config_lock:
+            printers_config = data
+        total = sum(len(v) for v in data.values())
+        print(f"  Loaded printers.json: {total} printer(s) configured")
+    except FileNotFoundError:
+        pass  # use defaults
+    except Exception as e:
+        print(f"  Warning: could not load printers.json: {e}")
+
+def save_printers_config(config):
+    global printers_config
+    with open(PRINTERS_FILE, 'w') as f:
+        json.dump(config, f, indent=2)
+    with config_lock:
+        printers_config = config
 
 # ── FILENAME FALLBACK ─────────────────────────────────────────────────
 def material_from_filename(filename):
@@ -57,71 +81,83 @@ def material_from_filename(filename):
     return ""
 
 # ── MOONRAKER POLLER ──────────────────────────────────────────────────
-def fetch_metadata(filename):
+def fetch_metadata(printer_id, base_url, filename):
     """Fetch slicer-embedded filament info from Moonraker for the current file."""
-    global _last_meta_filename
-    if not filename or filename == _last_meta_filename:
+    if not filename or _last_meta.get(printer_id) == filename:
         return
     filament_type = ""
     filament_name = ""
     try:
-        url = MOONRAKER_META_URL.format(filename=urllib.request.quote(filename, safe=''))
+        url = f"{base_url}/server/files/metadata?filename={urllib.request.quote(filename, safe='')}"
         req = urllib.request.urlopen(url, timeout=8)
         body = json.loads(req.read().decode())
         meta = body.get("result", {})
         # OrcaSlicer / PrusaSlicer embed arrays (one entry per extruder)
         ft = meta.get("filament_type", [])
         fn = meta.get("filament_name", [])
-        if isinstance(ft, list) and ft:
-            filament_type = ft[0]
-        elif isinstance(ft, str):
-            filament_type = ft
-        if isinstance(fn, list) and fn:
-            filament_name = fn[0]
-        elif isinstance(fn, str):
-            filament_name = fn
+        if isinstance(ft, list) and ft:   filament_type = ft[0]
+        elif isinstance(ft, str):         filament_type = ft
+        if isinstance(fn, list) and fn:   filament_name = fn[0]
+        elif isinstance(fn, str):         filament_name = fn
     except Exception as e:
-        print(f"  [meta] fetch failed for {filename!r}: {e}")
+        print(f"  [meta:{printer_id}] fetch failed for {filename!r}: {e}")
 
-    # Fallback: parse material from filename if metadata came back empty
     if not filament_type and not filament_name:
         filament_type = material_from_filename(filename)
         if filament_type:
-            print(f"  [meta] {filename}: metadata empty — inferred type={filament_type!r} from filename")
+            print(f"  [meta:{printer_id}] {filename}: inferred type={filament_type!r} from filename")
         else:
-            print(f"  [meta] {filename}: type={filament_type!r} name={filament_name!r}")
+            print(f"  [meta:{printer_id}] {filename}: type unknown")
     else:
-        print(f"  [meta] {filename}: type={filament_type!r} name={filament_name!r}")
+        print(f"  [meta:{printer_id}] {filename}: type={filament_type!r} name={filament_name!r}")
 
-    with state_lock:
-        printer_state["filament_type"] = filament_type
-        printer_state["filament_name"] = filament_name
-    _last_meta_filename = filename
+    with states_lock:
+        if printer_id in printer_states:
+            printer_states[printer_id]["filament_type"] = filament_type
+            printer_states[printer_id]["filament_name"] = filament_name
+    _last_meta[printer_id] = filename
 
-def poll_moonraker():
+def poll_printer(printer):
+    """Poll a single Moonraker instance and update its state entry."""
+    pid      = printer['id']
+    base_url = printer['moonrakerUrl'].rstrip('/')
+    query_url = f"{base_url}/printer/objects/query?print_stats"
+
+    with states_lock:
+        if pid not in printer_states:
+            printer_states[pid] = _blank_state(printer.get('name', pid))
+
+    try:
+        req  = urllib.request.urlopen(query_url, timeout=8)
+        body = json.loads(req.read().decode())
+        ps   = body.get("result", {}).get("status", {}).get("print_stats", {})
+        with states_lock:
+            printer_states[pid].update({
+                "status":         ps.get("state", "unknown"),
+                "filename":       ps.get("filename", ""),
+                "print_duration": ps.get("print_duration", 0),
+                "filament_used":  ps.get("filament_used", 0),
+                "last_checked":   time.time(),
+                "reachable":      True,
+            })
+            filename = printer_states[pid]["filename"]
+        if filename:
+            fetch_metadata(pid, base_url, filename)
+    except Exception:
+        with states_lock:
+            printer_states[pid].update({
+                "status":       "unreachable",
+                "last_checked": time.time(),
+                "reachable":    False,
+            })
+
+def poll_all_printers():
+    """Background thread — polls every configured printer once per interval."""
     while True:
-        try:
-            req = urllib.request.urlopen(MOONRAKER_URL, timeout=8)
-            body = json.loads(req.read().decode())
-            ps = body.get("result", {}).get("status", {}).get("print_stats", {})
-            status         = ps.get("state", "unknown")
-            filename       = ps.get("filename", "")
-            print_duration = ps.get("print_duration", 0)   # seconds actually printing
-            filament_used  = ps.get("filament_used", 0)    # mm extruded
-            with state_lock:
-                printer_state["status"]         = status
-                printer_state["filename"]       = filename
-                printer_state["print_duration"] = print_duration
-                printer_state["filament_used"]  = filament_used
-                printer_state["last_checked"]   = time.time()
-                printer_state["reachable"]      = True
-            if filename:
-                fetch_metadata(filename)
-        except Exception:
-            with state_lock:
-                printer_state["status"]       = "unreachable"
-                printer_state["last_checked"] = time.time()
-                printer_state["reachable"]    = False
+        with config_lock:
+            all_printers = list(printers_config.get('fdm', [])) + list(printers_config.get('resin', []))
+        for printer in all_printers:
+            poll_printer(printer)
         time.sleep(POLL_INTERVAL)
 
 # ── ODS GENERATOR ────────────────────────────────────────────────────
@@ -376,6 +412,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=DIR, **kwargs)
 
     def do_POST(self):
+        if self.path == '/update-printers':
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                config = json.loads(self.rfile.read(length).decode())
+                save_printers_config(config)
+                body = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+            return
         if self.path == '/generate-ods':
             try:
                 length  = int(self.headers.get('Content-Length', 0))
@@ -404,8 +458,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/printer-status":
-            with state_lock:
-                payload = json.dumps(printer_state).encode()
+            with states_lock:
+                payload = json.dumps(printer_states).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
@@ -440,14 +494,23 @@ def shutdown(sig, frame):
 signal.signal(signal.SIGINT,  shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
+load_printers_config()
+
+all_fdm   = printers_config.get('fdm', [])
+all_resin = printers_config.get('resin', [])
 print(f"\n  Azazel's Razer Time Tracker")
 print(f"  Server v{SERVER_VERSION} running AR Tracker v{TRACKER_VERSION}")
 print(f"  Running at http://localhost:{PORT}")
-print(f"  Moonraker polling: {MOONRAKER_IP} every {POLL_INTERVAL}s")
-print(f"  Press Ctrl+C to stop\n")
+for p in all_fdm:
+    print(f"  FDM   [{p['id']}] {p['name']}  →  {p['moonrakerUrl']}")
+for p in all_resin:
+    print(f"  Resin [{p['id']}] {p['name']}  →  {p['moonrakerUrl']}")
+if not all_fdm and not all_resin:
+    print(f"  No printers configured — add them in Settings")
+print(f"  Polling every {POLL_INTERVAL}s  |  Press Ctrl+C to stop\n")
 
 socketserver.TCPServer.allow_reuse_address = True
-threading.Thread(target=poll_moonraker, daemon=True).start()
+threading.Thread(target=poll_all_printers, daemon=True).start()
 if not os.environ.get('DOCKER'):
     threading.Thread(target=open_browser, daemon=True).start()
 

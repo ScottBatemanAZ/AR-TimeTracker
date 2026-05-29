@@ -859,6 +859,11 @@ function saveSettingsModal() {
   settings.fdmRate   = n('setFdmRate',   DEFAULT_SETTINGS.fdmRate);
   settings.resinRate = n('setResinRate', DEFAULT_SETTINGS.resinRate);
   persistSettings();
+  fetch('/update-printers', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({fdm: settings.fdmPrinters, resin: settings.resinPrinters})
+  }).catch(()=>{});  // silent fail when running without server
   closeModal('settingsModal');
   updateRateLabels();
   if (activeProject) { updateLiveStats(); renderSidebar(); }
@@ -1848,8 +1853,11 @@ function updatePrinterDot(reachable, status) {
 
 async function pollPrinter() {
   try {
-    const res = await fetch('/printer-status');
-    const ps  = await res.json();
+    const res        = await fetch('/printer-status');
+    const allStates  = await res.json();
+    // Stage 2: extract the first configured FDM printer's state from keyed response
+    const firstFdmId = settings.fdmPrinters[0]?.id;
+    const ps         = (firstFdmId && allStates[firstFdmId]) ? allStates[firstFdmId] : {};
     const { status, reachable, print_duration, filament_used, filament_type, filament_name } = ps;
 
     if (reachable) { printerUnreachCount = 0; }
