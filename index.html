@@ -59,7 +59,20 @@
   .btn-danger:hover { background: rgba(226,75,74,.1); border-color: var(--red); }
 
   .clock-area { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .clock-track { background: var(--bg); padding: 14px 18px; display: flex; align-items: flex-start; gap: 14px; }
+  .clock-track { background: var(--bg); padding: 14px 18px; display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+  .printer-cards { flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .printer-card { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px; }
+  .printer-card-name { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .printer-card-timer { font-family: var(--mono); font-size: 11px; color: var(--text); white-space: nowrap; min-width: 58px; text-align: right; }
+  .printer-card-btn { font-family: var(--mono); font-size: 9px; padding: 3px 9px; border-radius: 3px; cursor: pointer; border: 1px solid; white-space: nowrap; transition: all .15s; }
+  .printer-card-btn.start { background: none; border-color: var(--border2); color: var(--muted); }
+  .printer-card-btn.start:hover { border-color: var(--green-bright); color: var(--green-bright); }
+  .printer-card-btn.stop  { background: rgba(226,75,74,.1); border-color: var(--red); color: var(--red); }
+  .pcard-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .pcard-dot.printing { background: var(--green-bright); animation: pulse 2s ease-in-out infinite; }
+  .pcard-dot.idle     { background: var(--dim); }
+  .pcard-dot.offline  { background: var(--red); }
+  .pcard-dot.unknown  { background: var(--dim); opacity: .5; }
   .punch-btn { width: 68px; height: 68px; border-radius: 50%; border: 2px solid var(--border2); background: var(--surface2); color: var(--muted); font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex-shrink: 0; }
   .punch-btn svg { width: 20px; height: 20px; }
   .punch-btn.design:hover  { border-color: var(--accent); background: rgba(127,119,221,.1); color: var(--accent); }
@@ -333,6 +346,7 @@
             <div class="punch-since" id="fdmSince"></div>
             <button class="manual-link" onclick="openManual('fdm')">＋ log manual time</button>
           </div>
+          <div class="printer-cards" id="fdmPrinterCards"></div>
         </div>
         <div class="clock-track">
           <div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;">
@@ -352,6 +366,7 @@
             <div class="punch-since" id="resinSince"></div>
             <button class="manual-link" onclick="openManual('resin')">＋ log manual time</button>
           </div>
+          <div class="printer-cards" id="resinPrinterCards"></div>
         </div>
       </div>
 
@@ -1021,6 +1036,14 @@ function renderClock(type) {
   // Material code under icon (FDM + Resin only)
   const codeEl = document.getElementById(type+'MatCode');
   if (codeEl) codeEl.textContent = matCodeFor(type);
+  // Multi-printer: hide main punch button, show printer cards instead
+  if (type==='fdm'||type==='resin') {
+    const printers = type==='fdm' ? settings.fdmPrinters : settings.resinPrinters;
+    const multi = printers.length > 1;
+    const btnWrap = document.getElementById(type+'Btn')?.parentElement;
+    if (btnWrap) btnWrap.style.display = multi ? 'none' : '';
+    renderPrinterCards(type);
+  }
   // Subtype code under Design button
   if (type === 'design') {
     const labelEl = document.getElementById('designSubLabel');
@@ -1063,6 +1086,16 @@ function updateLiveStats() {
     if(isClockedIn(p,type)){const last=p[type+'Sessions'][p[type+'Sessions'].length-1];ms=Date.now()-last.start;}
     else{ms=(p[type+'Sessions']||[]).reduce((sum,s)=>sum+(s.end?s.end-s.start:0),0);}
     document.getElementById(type+'Timer').textContent=fmt(ms);
+  });
+  // Tick per-printer card timers (multi-printer mode)
+  ['fdm','resin'].forEach(type=>{
+    const printers=type==='fdm'?settings.fdmPrinters:settings.resinPrinters;
+    if(printers.length<=1) return;
+    printers.forEach(printer=>{
+      const el=document.getElementById('pcard-timer-'+printer.id); if(!el) return;
+      const s=(p[type+'Sessions']||[]).find(s=>!s.end&&s.printerId===printer.id);
+      el.textContent=s?fmt(Date.now()-s.start):'';
+    });
   });
 }
 function renderSessions(type) {
@@ -1188,6 +1221,53 @@ function togglePunch(type) {
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
     renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
   }
+}
+
+function togglePrinterPunch(type, printerId) {
+  if (!activeProject) return;
+  const key = type+'Sessions';
+  if (!activeProject[key]) activeProject[key]=[];
+  const sessions = activeProject[key];
+  const activeIdx = sessions.findIndex(s => !s.end && s.printerId === printerId);
+  if (activeIdx >= 0) {
+    sessions[activeIdx].end = Date.now();
+    saveData();
+    if (!hasAnyActive(activeProject)) clearInterval(timerInterval);
+    renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+    pendingMaterial = {type, sessionIdx: activeIdx};
+    openMaterialModal(type, activeIdx);
+  } else {
+    sessions.push({id:genId(), start:Date.now(), end:null, printerId});
+    saveData();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{updateLiveStats();renderSidebar();},1000);
+    renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+  }
+}
+
+function renderPrinterCards(type) {
+  const container = document.getElementById(type+'PrinterCards');
+  if (!container) return;
+  const printers = type==='fdm' ? settings.fdmPrinters : settings.resinPrinters;
+  if (printers.length <= 1) { container.innerHTML=''; return; }
+  const allStates = window._lastPrinterStates || {};
+  container.innerHTML = printers.map(printer => {
+    const pid = printer.id;
+    const active = activeProject && isClockedInFor(activeProject, type, pid);
+    const ps = allStates[pid] || {};
+    const dotCls = !ps.reachable ? (printerUnreachCounts[pid]>=12?'offline':'unknown') : ps.status==='printing' ? 'printing' : 'idle';
+    const timerTxt = (() => {
+      if (!active||!activeProject) return '';
+      const s=(activeProject[type+'Sessions']||[]).find(s=>!s.end&&s.printerId===pid);
+      return s ? fmt(Date.now()-s.start) : '';
+    })();
+    return `<div class="printer-card" id="pcard-${pid}">
+      <span class="pcard-dot ${dotCls}" id="pcard-dot-${pid}"></span>
+      <span class="printer-card-name">${esc(printer.name)}</span>
+      <span class="printer-card-timer" id="pcard-timer-${pid}">${timerTxt}</span>
+      <button class="printer-card-btn ${active?'stop':'start'}" onclick="togglePrinterPunch('${type}','${pid}')">${active?'Stop':'Start'}</button>
+    </div>`;
+  }).join('');
 }
 
 // ── EDIT DESIGN SESSION ───────────────────────────────────────────────
@@ -1832,9 +1912,14 @@ function openFilamentInfo() {
 }
 
 // ── MOONRAKER POLLING ─────────────────────────────────────────────────
-let prevPrinterStatus = null;
-let printerUnreachCount = 0;
-let liveFilamentType = '';   // latest from Moonraker metadata
+const prevPrinterStatuses  = {};  // {printerId: last known status}
+const printerUnreachCounts = {};  // {printerId: consecutive unreachable count}
+let liveFilamentType = '';        // latest from Moonraker metadata (first FDM printer)
+
+function isClockedInFor(proj, type, printerId) {
+  if (!proj) return false;
+  return (proj[type+'Sessions']||[]).some(s => !s.end && s.printerId === printerId);
+}
 
 function updatePrinterDot(reachable, status) {
   const dot = document.getElementById('printerDot');
@@ -1851,99 +1936,122 @@ function updatePrinterDot(reachable, status) {
   }
 }
 
+function processPrinterState(type, printer, ps) {
+  const pid = printer.id;
+  if (!ps) { printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1; return; }
+  const { status, reachable, print_duration, filament_used, filament_type, filament_name } = ps;
+
+  if (reachable) printerUnreachCounts[pid] = 0;
+  else           printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1;
+
+  // Update per-card dot
+  const dotEl = document.getElementById('pcard-dot-'+pid);
+  if (dotEl) {
+    const dc = !reachable ? (printerUnreachCounts[pid]>=12?'offline':'unknown') : status==='printing'?'printing':'idle';
+    dotEl.className = 'pcard-dot '+dc;
+  }
+
+  // Keep live filament type fresh (first FDM printer only)
+  if (type==='fdm' && reachable && (filament_type||filament_name)) {
+    liveFilamentType = filament_name||filament_type||'';
+    const codeEl = document.getElementById('fdmMatCode');
+    if (codeEl) codeEl.textContent = matCodeFor('fdm');
+  }
+
+  if (!reachable || !activeProject) return;
+
+  const prev = prevPrinterStatuses[pid];
+  const wasPrinting = prev === 'printing';
+  const isPrinting  = status === 'printing';
+
+  // First poll + already printing → punch in backdated
+  if (prev === undefined && isPrinting && !isClockedInFor(activeProject, type, pid)) {
+    const backdateMs = Math.max(0, (print_duration||0)*1000);
+    if (!activeProject[type+'Sessions']) activeProject[type+'Sessions']=[];
+    activeProject[type+'Sessions'].push({id:genId(), start:Date.now()-backdateMs, end:null, auto:true, printerId:pid,
+      ...(type==='fdm'?{slicerFilamentType:filament_type||'',slicerFilamentName:filament_name||''}:{})});
+    saveData(); clearInterval(timerInterval);
+    timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
+    renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+  }
+
+  // idle → printing → punch in
+  if (prev !== undefined && !wasPrinting && isPrinting && !isClockedInFor(activeProject, type, pid)) {
+    if (!activeProject[type+'Sessions']) activeProject[type+'Sessions']=[];
+    activeProject[type+'Sessions'].push({id:genId(), start:Date.now(), end:null, auto:true, printerId:pid,
+      ...(type==='fdm'?{slicerFilamentType:filament_type||'',slicerFilamentName:filament_name||''}:{})});
+    saveData(); clearInterval(timerInterval);
+    timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
+    renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+  }
+
+  // printing → idle → punch out (auto sessions for this printer only)
+  if (wasPrinting && !isPrinting) {
+    const sessions = activeProject[type+'Sessions']||[];
+    const idx = sessions.findIndex(s=>!s.end&&s.auto&&s.printerId===pid);
+    if (idx>=0) {
+      sessions[idx].end = Date.now();
+      if (type==='fdm'&&filament_used>0) sessions[idx].filamentUsedMm=filament_used;
+      saveData();
+      if (!hasAnyActive(activeProject)) clearInterval(timerInterval);
+      renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
+      pendingMaterial={type, sessionIdx:idx};
+      openMaterialModal(type, idx);
+    }
+  }
+
+  if (reachable) prevPrinterStatuses[pid] = status;
+}
+
 async function pollPrinter() {
   try {
-    const res        = await fetch('/printer-status');
-    const allStates  = await res.json();
-    // Stage 2: extract the first configured FDM printer's state from keyed response
-    const firstFdmId = settings.fdmPrinters[0]?.id;
-    const ps         = (firstFdmId && allStates[firstFdmId]) ? allStates[firstFdmId] : {};
-    const { status, reachable, print_duration, filament_used, filament_type, filament_name } = ps;
+    const res = await fetch('/printer-status');
+    const allStates = await res.json();
+    window._lastPrinterStates = allStates;
 
-    if (reachable) { printerUnreachCount = 0; }
-    else           { printerUnreachCount++; }
+    // Process all configured printers
+    for (const p of settings.fdmPrinters)   processPrinterState('fdm',   p, allStates[p.id]||null);
+    for (const p of settings.resinPrinters) processPrinterState('resin', p, allStates[p.id]||null);
 
-    // Keep live filament type fresh from slicer metadata
-    if (reachable && (filament_type || filament_name)) {
-      liveFilamentType = filament_name || filament_type || '';
-      const codeEl = document.getElementById('fdmMatCode');
-      if (codeEl) codeEl.textContent = matCodeFor('fdm');
+    // Update main printer dot (single-printer backward compat)
+    if (settings.fdmPrinters.length===1) {
+      const ps = allStates[settings.fdmPrinters[0].id]||{};
+      updatePrinterDot(ps.reachable, ps.status);
+    } else {
+      // Hide main dot when multi-printer (cards have their own dots)
+      const dot = document.getElementById('printerDot');
+      if (dot) dot.style.display='none';
     }
 
-    updatePrinterDot(reachable, status);
-
-    if (reachable && activeProject) {
-      const wasPrinting = prevPrinterStatus === 'printing';
-      const isPrinting  = status === 'printing';
-
-      // First poll and already printing — punch in backdated
-      if (prevPrinterStatus === null && isPrinting && !isClockedIn(activeProject, 'fdm')) {
-        const backdateMs = Math.max(0, (print_duration || 0) * 1000);
-        if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-        const _pid0 = settings.fdmPrinters.length===1 ? settings.fdmPrinters[0].id : null;
-        activeProject.fdmSessions.push({ id: genId(), start: Date.now() - backdateMs, end: null, auto: true, ...(_pid0?{printerId:_pid0}:{}), slicerFilamentType: filament_type||'', slicerFilamentName: filament_name||'' });
-        saveData();
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
-        renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
-      }
-
-      // idle/unknown → printing — punch in
-      if (prevPrinterStatus !== null && !wasPrinting && isPrinting && !isClockedIn(activeProject, 'fdm')) {
-        if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-        const slicerType = filament_type || '';
-        const slicerName = filament_name || '';
-        const _pid1 = settings.fdmPrinters.length===1 ? settings.fdmPrinters[0].id : null;
-        activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, ...(_pid1?{printerId:_pid1}:{}), slicerFilamentType: slicerType, slicerFilamentName: slicerName });
-        saveData();
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
-        renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
-      }
-
-      // printing → idle/complete/error — punch out (auto sessions only)
-      if (wasPrinting && !isPrinting && isClockedIn(activeProject, 'fdm')) {
-        const sessions = activeProject.fdmSessions || [];
-        const lastIdx  = sessions.length - 1;
-        if (lastIdx >= 0 && sessions[lastIdx].auto && !sessions[lastIdx].end) {
-          sessions[lastIdx].end = Date.now();
-          if (filament_used > 0) sessions[lastIdx].filamentUsedMm = filament_used;
-          saveData();
-          if (!hasAnyActive(activeProject)) clearInterval(timerInterval);
-          renderClock('fdm'); updateLiveStats(); renderSessions('fdm'); renderSidebar();
-          pendingMaterial = { type: 'fdm', sessionIdx: lastIdx };
-          openMaterialModal('fdm', lastIdx);
-        }
-      }
-
-      prevPrinterStatus = status;
-    } else if (!reachable) {
-      // don't update prevPrinterStatus while unreachable — ignore blips
-    }
-
-    // Show/hide resume bar: printer printing but nothing tracking
+    renderPrinterCards('fdm');
+    renderPrinterCards('resin');
     updateResumeBar();
 
-  } catch (e) {
-    printerUnreachCount++;
-    updatePrinterDot(false, null);
+  } catch(e) {
+    for (const p of settings.fdmPrinters) printerUnreachCounts[p.id]=(printerUnreachCounts[p.id]||0)+1;
+    if (settings.fdmPrinters.length===1) updatePrinterDot(false, null);
   }
 }
 
 function updateResumeBar() {
   const bar = document.getElementById('fdmResumeBar');
   if (!bar) return;
-  const printerPrinting = prevPrinterStatus === 'printing';
-  const notTracking     = !activeProject || !isClockedIn(activeProject, 'fdm');
-  bar.style.display = (printerPrinting && notTracking) ? 'flex' : 'none';
+  const anyNeedsResume = settings.fdmPrinters.some(p =>
+    prevPrinterStatuses[p.id]==='printing' && (!activeProject||!isClockedInFor(activeProject,'fdm',p.id))
+  );
+  bar.style.display = anyNeedsResume ? 'flex' : 'none';
 }
 
 function resumePrintTracking() {
   if (!activeProject) return;
-  if (isClockedIn(activeProject, 'fdm')) return; // already tracking
+  // Find the first FDM printer that is printing but has no active session
+  const printer = settings.fdmPrinters.find(p =>
+    prevPrinterStatuses[p.id]==='printing' && !isClockedInFor(activeProject,'fdm',p.id)
+  );
+  if (!printer) return;
+  const _pid2 = printer.id;
   if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-  const _pid2 = settings.fdmPrinters.length===1 ? settings.fdmPrinters[0].id : null;
-  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, ...(_pid2?{printerId:_pid2}:{}) });
+  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, printerId: _pid2 });
   saveData();
   clearInterval(timerInterval);
   timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
