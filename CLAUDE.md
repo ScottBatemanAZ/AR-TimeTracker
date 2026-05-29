@@ -139,6 +139,11 @@ Moonraker-calculated gram hint if `filamentUsedMm` is present and a density is k
 **Moonraker auto-sessions**: `idle→printing` = FDM punch in (backdated by `print_duration`
 on first poll). `printing→idle/complete/error` = punch out + material modal.
 12+ consecutive unreachable polls → dot goes red (offline). Fewer → dot dims but no transition.
+With multiple printers, each is tracked independently via `processPrinterState()`.
+
+**Multi-printer cards**: When 2+ FDM or Resin printers configured, the main punch button is
+hidden and compact printer cards render below the clock track — one per printer, each with
+its own status dot, live timer, and Start/Stop button. Single-printer = no change to layout.
 
 **Resume bar**: If printer is printing but FDM track is not running, amber bar appears in
 FDM panel with "Resume Tracking" button.
@@ -321,4 +326,4 @@ git pull && docker compose restart
 | v8.6 | Global stats bar above clock area — all-projects totals (hours + billed) |
 | v8.7 | Editable session times — time editor in material modal (FDM/Resin) + dedicated edit modal for Design sessions |
 | v8.8 | Project status dots in sidebar — Active (green/pulses), On Hold (red), Complete (gray); click to cycle |
-| v9.0 | Multi-printer foundation — Stage 1: printer settings & data model; Stage 2: keyed server polling, /update-printers endpoint, printers.json |
+| v9.0 | Multi-printer support — Settings UI, per-printer session stamping, keyed Moonraker polling, printer cards in FDM/Resin clock tracks |
