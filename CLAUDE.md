@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** v8.5 | **Server:** v1.1
+**Current version:** v8.6 | **Server:** v1.1
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -279,7 +279,6 @@ git pull && docker compose restart
 | Feature | Notes |
 |---|---|
 | **Editable session times** | Allow editing start/end timestamps on existing sessions |
-| **Multi-project totals** | Summary view across all projects (total hours, total billed, etc.) |
 | **Proton Drive integration** | Waiting for public Proton Drive API |
 
 ---
@@ -306,3 +305,4 @@ git pull && docker compose restart
 | v8.3 | Footer polish (font, color, azazelsrazer.com link); ODS flush fix |
 | v8.4 | Docker support (Dockerfile, docker-compose.yml, .dockerignore) |
 | v8.5 | JSON backup/restore (sidebar footer buttons) |
+| v8.6 | Global stats bar above clock area — all-projects totals (hours + billed) |
