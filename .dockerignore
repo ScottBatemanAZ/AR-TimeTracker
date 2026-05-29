@@ -1,0 +1,7 @@
+*.bak
+patch.py
+Thumbs.db
+.git
+.claude
+__pycache__
+*.pyc

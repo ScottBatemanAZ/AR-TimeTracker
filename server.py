@@ -448,7 +448,8 @@ print(f"  Press Ctrl+C to stop\n")
 
 socketserver.TCPServer.allow_reuse_address = True
 threading.Thread(target=poll_moonraker, daemon=True).start()
-threading.Thread(target=open_browser,   daemon=True).start()
+if not os.environ.get('DOCKER'):
+    threading.Thread(target=open_browser, daemon=True).start()
 
 with socketserver.TCPServer(("", PORT), Handler) as httpd:
     httpd.serve_forever()

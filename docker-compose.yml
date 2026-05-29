@@ -1,0 +1,12 @@
+services:
+  timetracker:
+    build: .
+    image: ar-timetracker
+    container_name: ar-timetracker
+    ports:
+      - "5757:5757"
+    volumes:
+      - .:/app        # mount source dir so edits + git pulls are live instantly
+    environment:
+      - DOCKER=1      # suppresses auto browser-open
+    restart: unless-stopped
