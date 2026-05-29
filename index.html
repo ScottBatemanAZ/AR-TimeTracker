@@ -103,6 +103,12 @@
   .manual-link { font-family: var(--mono); font-size: 9px; color: var(--dim); cursor: pointer; background: none; border: none; padding: 0; margin-top: 4px; display: block; letter-spacing: .05em; transition: color .15s; }
   .manual-link:hover { color: var(--amber); }
 
+  .global-stats-bar { display: flex; align-items: center; background: var(--surface3); border-bottom: 1px solid var(--border); padding: 5px 18px; flex-shrink: 0; gap: 0; }
+  .global-stats-hdr { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); padding-right: 16px; border-right: 1px solid var(--border); margin-right: 16px; white-space: nowrap; line-height: 1.4; }
+  .global-stat { display: flex; align-items: baseline; gap: 7px; margin-right: 22px; }
+  .global-stat-label { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .global-stat-val { font-family: var(--mono); font-size: 13px; font-weight: 600; line-height: 1; }
+
   .stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .stat-cell { background: var(--surface); padding: 10px 14px; }
   .stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
@@ -179,6 +185,7 @@
   .modal-title.manual-resin { color: var(--blue-bright); }
   .form-row { margin-bottom: 14px; }
   .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .modal-section-rule { border: none; border-top: 1px solid rgba(127,119,221,.35); margin: 16px 0 14px; }
   .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
   .form-label { display: block; font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
   .form-hint { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 5px; }
@@ -252,6 +259,26 @@
           <button class="btn" onclick="editProject()">Edit</button>
           <button class="btn btn-export" onclick="openExportModal()">Export</button>
           <button class="btn btn-danger" onclick="deleteProject()">Delete</button>
+        </div>
+      </div>
+
+      <div class="global-stats-bar">
+        <div class="global-stats-hdr" id="gStatHdr">All Projects</div>
+        <div class="global-stat">
+          <span class="global-stat-label">Design</span>
+          <span class="global-stat-val design-val" id="gStatDesign">0.0h</span>
+        </div>
+        <div class="global-stat">
+          <span class="global-stat-label">FDM</span>
+          <span class="global-stat-val fdm-val" id="gStatFdm">0.0h</span>
+        </div>
+        <div class="global-stat">
+          <span class="global-stat-label">Resin</span>
+          <span class="global-stat-val resin-val" id="gStatResin">0.0h</span>
+        </div>
+        <div class="global-stat">
+          <span class="global-stat-label">Total Billed</span>
+          <span class="global-stat-val total-val" id="gStatTotal">$0.00</span>
         </div>
       </div>
 
@@ -476,6 +503,36 @@
   </div>
 </div>
 
+<!-- EDIT DESIGN SESSION MODAL -->
+<div class="modal-backdrop" id="editSessionModal">
+  <div class="modal">
+    <div class="modal-title design-color">Edit Design Session</div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Start</label>
+        <input type="datetime-local" id="editSessStart" step="60" />
+      </div>
+      <div>
+        <label class="form-label">End</label>
+        <input type="datetime-local" id="editSessEnd" step="60" />
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Work Type</label>
+      <select id="editSessSubtype">
+        <option value="">— unset —</option>
+        <option value="designing">Designing</option>
+        <option value="modeling">Modeling / CAD</option>
+        <option value="post-processing">Post-Processing</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('editSessionModal')">Cancel</button>
+      <button class="btn-create" onclick="saveEditSession()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- MATERIAL MODAL -->
 <div class="modal-backdrop" id="materialModal">
   <div class="modal">
@@ -522,6 +579,18 @@
       </div>
       <div class="form-hint preview" id="resinCostPreview"></div>
       <div class="form-hint" id="resinMachineHint" style="margin-top:4px;"></div>
+    </div>
+    <!-- Session Time Editor -->
+    <hr class="modal-section-rule">
+    <div class="form-row-2" style="margin-bottom:8px;">
+      <div>
+        <label class="form-label">Session Start</label>
+        <input type="datetime-local" id="matSessionStart" step="60" oninput="updateMatTimeHints()" />
+      </div>
+      <div>
+        <label class="form-label">Session End</label>
+        <input type="datetime-local" id="matSessionEnd" step="60" oninput="updateMatTimeHints()" />
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-skip" onclick="skipMaterial()">Skip</button>
@@ -789,6 +858,7 @@ function hasAnyActive(proj) { return isClockedIn(proj,'design')||isClockedIn(pro
 
 // ── SIDEBAR ───────────────────────────────────────────────────────────
 function renderSidebar() {
+  updateGlobalStats();
   const list=document.getElementById('projectList');
   list.innerHTML='';
   data.projects.forEach(p=>{
@@ -879,6 +949,7 @@ function renderClock(type) {
 }
 function updateLiveStats() {
   const p=activeProject; if(!p) return;
+  updateGlobalStats();
   const dc=calcDesign(p),fc=calcFdm(p),rc=calcResin(p),exp=calcReceipts(p);
   const grand=dc.cost+fc.total+rc.total+exp;
   document.getElementById('statDesignCost').textContent=fmtMoney(dc.cost);
@@ -911,10 +982,9 @@ function renderSessions(type) {
     if(type==='design'){
       const bill=(ms/3600000)*settings.laborRate;
       billHtml=active?'':`<div class="session-bill design-bill">${fmtMoney(bill)}</div>`;
-      if (s.designSubtype) {
-        const cls = esc(s.designSubtype);
-        const txt = esc(s.designSubtype.replace(/-/g,' '));
-        matHtml = `<div class="session-mat" style="padding-left:2px;"><span class="design-subtype-label ${cls}" style="font-size:9px;opacity:.85;">${txt}</span></div>`;
+      if(!active){
+        const subtypeHtml = s.designSubtype ? `<span class="design-subtype-label ${esc(s.designSubtype)}" style="font-size:9px;opacity:.85;">${esc(s.designSubtype.replace(/-/g,' '))}</span>` : '';
+        matHtml = `<div class="session-mat" style="padding-left:2px;">${subtypeHtml}<button class="session-mat-edit" onclick="openEditSession(${i})">edit</button></div>`;
       }
     } else if(type==='fdm'){
       const timeCost=(ms/3600000)*settings.fdmRate;
@@ -967,6 +1037,24 @@ function renderReceipts() {
   document.getElementById('receiptTotalVal').textContent=fmtMoney(total);
 }
 
+// ── GLOBAL STATS ─────────────────────────────────────────────────────
+function updateGlobalStats() {
+  let dMs=0, fMs=0, rMs=0, grand=0;
+  data.projects.forEach(p => {
+    const dc=calcDesign(p), fc=calcFdm(p), rc=calcResin(p), exp=calcReceipts(p);
+    dMs  += dc.hours * 3600000;
+    fMs  += fc.hours * 3600000;
+    rMs  += rc.hours * 3600000;
+    grand+= dc.cost + fc.total + rc.total + exp;
+  });
+  const n = data.projects.length;
+  document.getElementById('gStatHdr').textContent    = n === 1 ? '1 Project' : n + ' Projects';
+  document.getElementById('gStatDesign').textContent = (dMs/3600000).toFixed(1) + 'h';
+  document.getElementById('gStatFdm').textContent    = (fMs/3600000).toFixed(1) + 'h';
+  document.getElementById('gStatResin').textContent  = (rMs/3600000).toFixed(1) + 'h';
+  document.getElementById('gStatTotal').textContent  = fmtMoney(grand);
+}
+
 // ── SELECT PROJECT ────────────────────────────────────────────────────
 function selectProject(id) {
   activeProject=data.projects.find(p=>p.id===id)||null;
@@ -1003,6 +1091,30 @@ function togglePunch(type) {
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
     renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
   }
+}
+
+// ── EDIT DESIGN SESSION ───────────────────────────────────────────────
+let editingSession = null;
+function openEditSession(sessionIdx) {
+  if(!activeProject) return;
+  const s = activeProject.designSessions[sessionIdx];
+  editingSession = sessionIdx;
+  document.getElementById('editSessStart').value = toDatetimeLocal(s.start);
+  document.getElementById('editSessEnd').value = s.end ? toDatetimeLocal(s.end) : '';
+  document.getElementById('editSessSubtype').value = s.designSubtype || '';
+  document.getElementById('editSessionModal').classList.add('open');
+  setTimeout(()=>document.getElementById('editSessStart').focus(),50);
+}
+function saveEditSession() {
+  if(editingSession===null||!activeProject){closeModal('editSessionModal');return;}
+  const s = activeProject.designSessions[editingSession];
+  const newStart = new Date(document.getElementById('editSessStart').value).getTime();
+  const newEnd   = new Date(document.getElementById('editSessEnd').value).getTime();
+  if(!isNaN(newStart)&&!isNaN(newEnd)&&newStart<newEnd){s.start=newStart;s.end=newEnd;}
+  s.designSubtype = document.getElementById('editSessSubtype').value || '';
+  editingSession = null;
+  saveData(); closeModal('editSessionModal');
+  updateLiveStats(); renderSessions('design'); renderSidebar();
 }
 
 // ── DESIGN SUBTYPE ────────────────────────────────────────────────────
@@ -1079,6 +1191,25 @@ function saveManualTime() {
 }
 
 // ── MATERIAL MODAL ────────────────────────────────────────────────────
+function toDatetimeLocal(ts) {
+  const d=new Date(ts), pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function updateMatTimeHints() {
+  if(!pendingMaterial||!activeProject) return;
+  const {type,sessionIdx}=pendingMaterial;
+  const s=activeProject[type+'Sessions'][sessionIdx];
+  const startVal=document.getElementById('matSessionStart').value;
+  const endVal=document.getElementById('matSessionEnd').value;
+  const start=startVal?new Date(startVal).getTime():s.start;
+  const end=endVal?new Date(endVal).getTime():s.end;
+  if(!start||!end||start>=end) return;
+  const hrs=(end-start)/3600000;
+  const rate=type==='fdm'?settings.fdmRate:settings.resinRate;
+  const hintId=type==='fdm'?'matMachineHint':'resinMachineHint';
+  document.getElementById(hintId).textContent=hrs.toFixed(2)+'h × $'+rate+'/hr = '+fmtMoney(hrs*rate)+' machine cost';
+  if(type==='fdm') updateFdmPreview(); else updateResinPreview();
+}
 function buildFilamentSelect(currentType) {
   const sel=document.getElementById('matFilamentType');
   sel.innerHTML='<option value="">— select type —</option>';
@@ -1195,6 +1326,8 @@ function openMaterialModal(type,sessionIdx) {
     document.getElementById('matMachineHint').textContent=hrs.toFixed(2)+'h × $'+settings.fdmRate+'/hr = '+fmtMoney(hrs*settings.fdmRate)+' machine cost';
     document.getElementById('matSaveBtn').textContent='Log Filament';
     updateFdmPreview();
+    document.getElementById('matSessionStart').value=toDatetimeLocal(s.start);
+    document.getElementById('matSessionEnd').value=s.end?toDatetimeLocal(s.end):'';
     setTimeout(()=>document.getElementById('matGrams').focus(),50);
   } else {
     titleEl.textContent='Resin — Log Material'; titleEl.className='modal-title resin-color';
@@ -1208,6 +1341,8 @@ function openMaterialModal(type,sessionIdx) {
     document.getElementById('resinMachineHint').textContent=hrs.toFixed(2)+'h × $'+settings.resinRate+'/hr = '+fmtMoney(hrs*settings.resinRate)+' machine cost';
     document.getElementById('matSaveBtn').textContent='Log Resin';
     updateResinPreview();
+    document.getElementById('matSessionStart').value=toDatetimeLocal(s.start);
+    document.getElementById('matSessionEnd').value=s.end?toDatetimeLocal(s.end):'';
     setTimeout(()=>document.getElementById('matResinMl').focus(),50);
   }
   document.getElementById('materialModal').classList.add('open');
@@ -1234,6 +1369,12 @@ function saveMaterial() {
     sessions[sessionIdx].resinDensity=density;
     sessions[sessionIdx].resinType=typeName||'';
     delete sessions[sessionIdx].resinCost; // clear old flat-$ field
+  }
+  const newStart=new Date(document.getElementById('matSessionStart').value).getTime();
+  const newEnd=new Date(document.getElementById('matSessionEnd').value).getTime();
+  if(!isNaN(newStart)&&!isNaN(newEnd)&&newStart<newEnd){
+    sessions[sessionIdx].start=newStart;
+    sessions[sessionIdx].end=newEnd;
   }
   saveData(); pendingMaterial=null; closeModal('materialModal');
   updateLiveStats(); renderSessions(type); renderSidebar();
@@ -1311,7 +1452,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal'].forEach(closeModal);pendingMaterial=null;manualType=null;}
+  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal','editSessionModal'].forEach(closeModal);pendingMaterial=null;manualType=null;editingSession=null;}
   if(e.key==='Enter'&&document.getElementById('projectModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA') saveProject();
   if(e.key==='Enter'&&document.getElementById('manualModal').classList.contains('open')) saveManualTime();
 });
