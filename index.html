@@ -43,7 +43,7 @@
   .status-dot:hover { opacity: .7; }
   .status-dot.active   { background: var(--green-bright); }
   .status-dot.on-hold  { background: var(--red); }
-  .status-dot.complete { background: #555560; }
+  .status-dot.complete { background: #9a9aaa; }
   .status-dot.pulsing  { animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
   .proj-name { display: flex; align-items: center; }
@@ -214,12 +214,14 @@
   .type-row { display: grid; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
   .type-row.filament-row { grid-template-columns: 1fr 72px 58px auto; gap: 6px; }
   .type-row.resin-row    { grid-template-columns: 1fr 60px 58px auto; gap: 6px; }
+  .type-row.printer-row  { grid-template-columns: 1fr 2fr auto; gap: 8px; }
   .type-row-name    { color: var(--text); }
   .type-row-cost    { color: var(--green-bright); text-align: right; font-size: 10px; }
   .type-row-density { color: var(--blue-bright); text-align: right; font-size: 10px; }
   .type-add-row { display: grid; gap: 5px; margin-top: 6px; }
   .type-add-row.filament-add { grid-template-columns: 1fr 72px 58px auto; }
   .type-add-row.resin-add    { grid-template-columns: 1fr 60px 58px auto; }
+  .type-add-row.printer-add  { grid-template-columns: 1fr 2fr auto; }
   .type-add-btn { padding: 4px 8px; background: none; border: 1px solid var(--border2); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; white-space: nowrap; transition: all .15s; }
   .type-add-btn:hover { border-color: var(--amber); color: var(--amber); }
   .col-header { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: right; padding-bottom: 4px; }
@@ -663,6 +665,28 @@
       <button class="type-add-btn" onclick="addResinType()">+</button>
     </div>
 
+    <div class="settings-section">FDM Printers</div>
+    <div style="display:grid;grid-template-columns:1fr 2fr 24px;gap:8px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span></span>
+    </div>
+    <div class="type-list" id="fdmPrintersList"></div>
+    <div class="type-add-row printer-add">
+      <input type="text" id="newFdmPrinterName" placeholder="e.g. Neptune 4 Max" />
+      <input type="text" id="newFdmPrinterUrl"  placeholder="http://192.168.0.xx" />
+      <button class="type-add-btn" onclick="addFdmPrinter()">+</button>
+    </div>
+
+    <div class="settings-section">Resin Printers</div>
+    <div style="display:grid;grid-template-columns:1fr 2fr 24px;gap:8px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span></span>
+    </div>
+    <div class="type-list" id="resinPrintersList"></div>
+    <div class="type-add-row printer-add">
+      <input type="text" id="newResinPrinterName" placeholder="e.g. Mars 4 Ultra" />
+      <input type="text" id="newResinPrinterUrl"  placeholder="http://192.168.0.xx" />
+      <button class="type-add-btn" onclick="addResinPrinter()">+</button>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
       <button class="btn-create" onclick="saveSettingsModal()">Save Settings</button>
@@ -674,6 +698,8 @@
 // ── DEFAULTS ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
   laborRate: 40, fdmRate: 5, resinRate: 2,
+  fdmPrinters:   [{id:'fdm-0', name:'Neptune 4 Plus', moonrakerUrl:'http://192.168.0.74'}],
+  resinPrinters: [],
   filamentTypes: [
     {name:'PLA',      costPerKg:20, densityGPerCm3:1.24},
     {name:'PLA+',     costPerKg:25, densityGPerCm3:1.24},
@@ -710,6 +736,8 @@ function loadSettings() {
       const saved = JSON.parse(raw);
       settings = { ...DEFAULT_SETTINGS, ...saved };
       if (!settings.filamentTypes) settings.filamentTypes = DEFAULT_SETTINGS.filamentTypes;
+      if (!settings.fdmPrinters)   settings.fdmPrinters   = DEFAULT_SETTINGS.fdmPrinters;
+      if (!settings.resinPrinters) settings.resinPrinters = [];
       // migrate old string-based resinTypes
       if (!settings.resinTypes || !settings.resinTypes.length) {
         settings.resinTypes = DEFAULT_SETTINGS.resinTypes;
@@ -734,8 +762,50 @@ function openSettings() {
   document.getElementById('setResinRate').value = settings.resinRate;
   renderFilamentTypesList();
   renderResinTypesList();
+  renderFdmPrintersList();
+  renderResinPrintersList();
   populateFilamentLibraryPicker();
   document.getElementById('settingsModal').classList.add('open');
+}
+function renderFdmPrintersList() {
+  const el = document.getElementById('fdmPrintersList');
+  if (!settings.fdmPrinters.length) { el.innerHTML='<div class="empty-state">No FDM printers defined.</div>'; return; }
+  el.innerHTML = settings.fdmPrinters.map((p,i) =>
+    `<div class="type-row printer-row">
+      <span class="type-row-name">${esc(p.name)}</span>
+      <span class="type-row-cost" style="color:var(--muted);text-align:left;">${esc(p.moonrakerUrl)}</span>
+      <button class="type-del-btn" onclick="removeFdmPrinter(${i})">✕</button>
+    </div>`).join('');
+}
+function removeFdmPrinter(i) { settings.fdmPrinters.splice(i,1); renderFdmPrintersList(); }
+function addFdmPrinter() {
+  const name = document.getElementById('newFdmPrinterName').value.trim();
+  const url  = document.getElementById('newFdmPrinterUrl').value.trim();
+  if (!name || !url) return;
+  settings.fdmPrinters.push({id:'fdm-'+Date.now(), name, moonrakerUrl:url});
+  document.getElementById('newFdmPrinterName').value='';
+  document.getElementById('newFdmPrinterUrl').value='';
+  renderFdmPrintersList();
+}
+function renderResinPrintersList() {
+  const el = document.getElementById('resinPrintersList');
+  if (!settings.resinPrinters.length) { el.innerHTML='<div class="empty-state">No resin printers defined.</div>'; return; }
+  el.innerHTML = settings.resinPrinters.map((p,i) =>
+    `<div class="type-row printer-row">
+      <span class="type-row-name">${esc(p.name)}</span>
+      <span class="type-row-cost" style="color:var(--muted);text-align:left;">${esc(p.moonrakerUrl)}</span>
+      <button class="type-del-btn" onclick="removeResinPrinter(${i})">✕</button>
+    </div>`).join('');
+}
+function removeResinPrinter(i) { settings.resinPrinters.splice(i,1); renderResinPrintersList(); }
+function addResinPrinter() {
+  const name = document.getElementById('newResinPrinterName').value.trim();
+  const url  = document.getElementById('newResinPrinterUrl').value.trim();
+  if (!name || !url) return;
+  settings.resinPrinters.push({id:'resin-'+Date.now(), name, moonrakerUrl:url});
+  document.getElementById('newResinPrinterName').value='';
+  document.getElementById('newResinPrinterUrl').value='';
+  renderResinPrintersList();
 }
 function renderFilamentTypesList() {
   const el = document.getElementById('filamentTypesList');
@@ -1105,7 +1175,9 @@ function togglePunch(type) {
     if(type==='fdm'||type==='resin'){pendingMaterial={type,sessionIdx};openMaterialModal(type,sessionIdx);}
   } else {
     if (type === 'design') { openSubtypePicker('new'); return; }
-    activeProject[key].push({id:genId(),start:Date.now(),end:null});
+    const printerList = type==='fdm' ? settings.fdmPrinters : settings.resinPrinters;
+    const printerId = printerList.length===1 ? printerList[0].id : null;
+    activeProject[key].push({id:genId(),start:Date.now(),end:null,...(printerId?{printerId}:{})});
     saveData();
     clearInterval(timerInterval);
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
@@ -1800,7 +1872,8 @@ async function pollPrinter() {
       if (prevPrinterStatus === null && isPrinting && !isClockedIn(activeProject, 'fdm')) {
         const backdateMs = Math.max(0, (print_duration || 0) * 1000);
         if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-        activeProject.fdmSessions.push({ id: genId(), start: Date.now() - backdateMs, end: null, auto: true, slicerFilamentType: filament_type||'', slicerFilamentName: filament_name||'' });
+        const _pid0 = settings.fdmPrinters.length===1 ? settings.fdmPrinters[0].id : null;
+        activeProject.fdmSessions.push({ id: genId(), start: Date.now() - backdateMs, end: null, auto: true, ...(_pid0?{printerId:_pid0}:{}), slicerFilamentType: filament_type||'', slicerFilamentName: filament_name||'' });
         saveData();
         clearInterval(timerInterval);
         timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
@@ -1812,7 +1885,8 @@ async function pollPrinter() {
         if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
         const slicerType = filament_type || '';
         const slicerName = filament_name || '';
-        activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, slicerFilamentType: slicerType, slicerFilamentName: slicerName });
+        const _pid1 = settings.fdmPrinters.length===1 ? settings.fdmPrinters[0].id : null;
+        activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, ...(_pid1?{printerId:_pid1}:{}), slicerFilamentType: slicerType, slicerFilamentName: slicerName });
         saveData();
         clearInterval(timerInterval);
         timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
@@ -1860,7 +1934,8 @@ function resumePrintTracking() {
   if (!activeProject) return;
   if (isClockedIn(activeProject, 'fdm')) return; // already tracking
   if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true });
+  const _pid2 = settings.fdmPrinters.length===1 ? settings.fdmPrinters[0].id : null;
+  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, ...(_pid2?{printerId:_pid2}:{}) });
   saveData();
   clearInterval(timerInterval);
   timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);
