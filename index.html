@@ -188,6 +188,7 @@
   .session-manual-tag { font-family: var(--mono); font-size: 8px; color: var(--dim); border: 1px solid var(--dim); border-radius: 2px; padding: 0 3px; margin-left: 4px; vertical-align: middle; }
   .session-failed-tag { font-family: var(--mono); font-size: 8px; color: var(--red); border: 1px solid var(--red); border-radius: 2px; padding: 0 3px; margin-left: 4px; vertical-align: middle; letter-spacing: .05em; }
   .session-entry-failed { border-left: 3px solid var(--red); padding-left: 8px; background: rgba(226,75,74,.04); border-radius: 2px; }
+  .session-note { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 3px; padding-left: 2px; font-style: italic; }
   .manual-link.failure { color: var(--dim); }
   .manual-link.failure:hover { color: var(--red); }
   .empty-state { font-size: 11px; color: var(--dim); font-family: var(--mono); padding: 10px 0; }
@@ -464,7 +465,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.3</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.4</span></span>
     </footer>
   </div>
 </div>
@@ -622,6 +623,10 @@
         <option value="post-processing">Post-Processing</option>
       </select>
     </div>
+    <div class="form-row" style="margin-top:8px;">
+      <label class="form-label">Note (optional)</label>
+      <textarea id="editSessNote" placeholder="What were you working on?" style="min-height:44px;resize:vertical;"></textarea>
+    </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('editSessionModal')">Cancel</button>
       <button class="btn-create" onclick="saveEditSession()">Save Changes</button>
@@ -687,6 +692,10 @@
         <label class="form-label">Session End</label>
         <input type="datetime-local" id="matSessionEnd" step="60" oninput="updateMatTimeHints()" />
       </div>
+    </div>
+    <div class="form-row" style="margin-top:8px;">
+      <label class="form-label">Note (optional)</label>
+      <textarea id="matNote" placeholder="Bed adhesion issue, client revision 2, settings used…" style="min-height:44px;resize:vertical;"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn-skip" onclick="skipMaterial()">Skip</button>
@@ -1346,13 +1355,14 @@ function renderSessions(type) {
     }
     const isLivePrint = active && type === 'fdm' && s.auto;
     const liveBadge   = isLivePrint ? '<div class="session-live-badge">▶ Print in Progress</div>' : '';
+    const noteHtml = s.note ? `<div class="session-note">${esc(s.note)}</div>` : '';
     return `<div class="session-entry${isLivePrint?' session-entry-live':''}${s.failed?' session-entry-failed':''}">
     ${liveBadge}<div class="session-row">
       <div class="session-time">${active?'● ':''} ${fmtDT(s.start)}${s.end?' → '+fmtDT(s.end):'(active)'}${manTag}${failTag}</div>
       <div class="session-dur">${active?'running':fmt(ms)}</div>
       ${billHtml}
       <button class="session-delete" onclick="deleteSession('${type}',${i})">✕</button>
-    </div>${matHtml}</div>`;
+    </div>${matHtml}${noteHtml}</div>`;
   }).join('');
 }
 function renderReceipts() {
@@ -1482,6 +1492,7 @@ function openEditSession(sessionIdx) {
   document.getElementById('editSessStart').value = toDatetimeLocal(s.start);
   document.getElementById('editSessEnd').value = s.end ? toDatetimeLocal(s.end) : '';
   document.getElementById('editSessSubtype').value = s.designSubtype || '';
+  document.getElementById('editSessNote').value = s.note || '';
   document.getElementById('editSessionModal').classList.add('open');
   setTimeout(()=>document.getElementById('editSessStart').focus(),50);
 }
@@ -1492,6 +1503,8 @@ function saveEditSession() {
   const newEnd   = new Date(document.getElementById('editSessEnd').value).getTime();
   if(!isNaN(newStart)&&!isNaN(newEnd)&&newStart<newEnd){s.start=newStart;s.end=newEnd;}
   s.designSubtype = document.getElementById('editSessSubtype').value || '';
+  const note = document.getElementById('editSessNote').value.trim();
+  if(note) s.note=note; else delete s.note;
   editingSession = null;
   saveData(); closeModal('editSessionModal');
   updateLiveStats(); renderSessions('design'); renderSidebar();
@@ -1719,6 +1732,7 @@ function openMaterialModal(type,sessionIdx) {
     updateFdmPreview();
     document.getElementById('matSessionStart').value=toDatetimeLocal(s.start);
     document.getElementById('matSessionEnd').value=s.end?toDatetimeLocal(s.end):'';
+    document.getElementById('matNote').value=s.note||'';
     setTimeout(()=>document.getElementById('matGrams').focus(),50);
   } else {
     titleEl.textContent=isFail?'Resin — Log Failed Print':'Resin — Log Material'; titleEl.className='modal-title '+(isFail?'modal-title-red':'resin-color');
@@ -1734,6 +1748,7 @@ function openMaterialModal(type,sessionIdx) {
     updateResinPreview();
     document.getElementById('matSessionStart').value=toDatetimeLocal(s.start);
     document.getElementById('matSessionEnd').value=s.end?toDatetimeLocal(s.end):'';
+    document.getElementById('matNote').value=s.note||'';
     setTimeout(()=>document.getElementById('matResinMl').focus(),50);
   }
   document.getElementById('materialModal').classList.add('open');
@@ -1767,6 +1782,8 @@ function saveMaterial() {
     sessions[sessionIdx].start=newStart;
     sessions[sessionIdx].end=newEnd;
   }
+  const note=document.getElementById('matNote').value.trim();
+  if(note) sessions[sessionIdx].note=note; else delete sessions[sessionIdx].note;
   saveData(); pendingMaterial=null; closeModal('materialModal');
   updateLiveStats(); renderSessions(type); renderSidebar();
 }

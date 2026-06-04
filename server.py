@@ -18,7 +18,7 @@ from datetime import datetime
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_VERSION  = "1.2"
-TRACKER_VERSION = "Beta 9.3"
+TRACKER_VERSION = "Beta 9.4"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
@@ -236,18 +236,19 @@ def generate_ods(payload):
         row(sc(f'Design Time — {proj_name}', B)),
         row(sc(f'Labor Rate: ${labor_rate:.2f}/hr')),
         blank(),
-        row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Subtype',H), sc('Cost',H)),
+        row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Subtype',H), sc('Cost',H), sc('Note',H)),
     ]
     d_ms = 0; sub_tots = {}
     for s in d_sess:
         ms   = int(s['end']) - int(s['start']); hrs = ms_hrs(ms)
         cost = hrs * labor_rate
         sub  = (s.get('designSubtype') or 'unspecified').replace('-',' ').title()
+        note = s.get('note') or ''
         d_ms += ms
         sub_tots.setdefault(sub, {'ms':0,'cost':0.0})
         sub_tots[sub]['ms'] += ms; sub_tots[sub]['cost'] += cost
         d_rows.append(row(sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
-                          sc(ms_hm(ms)), sc(sub), cc(cost)))
+                          sc(ms_hm(ms)), sc(sub), cc(cost), sc(note)))
     d_rows += [blank(), row(sc('Subtotals by Type', B)),
                row(sc('Subtype',H), sc('',H), sc('',H), sc('Duration',H), sc('',H), sc('Cost',H))]
     for sub, t in sub_tots.items():
@@ -263,7 +264,7 @@ def generate_ods(payload):
         row(sc(f'Machine Rate: ${fdm_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
         blank(),
         row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Material',H),
-            sc('Grams',H), sc('$/kg',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H)),
+            sc('Grams',H), sc('$/kg',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H), sc('Note',H)),
     ]
     f_ms = 0; f_fil = 0.0; f_mach = 0.0; f_g = 0.0; f_elec = 0.0; f_mat_tots = {}
     for s in f_sess:
@@ -280,7 +281,8 @@ def generate_ods(payload):
             sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
             sc(ms_hm(ms)), sc(mat),
             nc(g,2) if g else sc('—'), nc(cpkg,2) if cpkg else sc('—'),
-            cc(fc) if fc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(fc+mach+ec)))
+            cc(fc) if fc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(fc+mach+ec),
+            sc(s.get('note') or '')))
     f_rows += [blank(), row(sc('Subtotals by Material', B)),
                row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('Grams',H),
                    sc('',H), sc('',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H))]
@@ -299,7 +301,7 @@ def generate_ods(payload):
         row(sc(f'Machine Rate: ${resin_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
         blank(),
         row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Material',H),
-            sc('mL',H), sc('$/kg',H), sc('Density',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H)),
+            sc('mL',H), sc('$/kg',H), sc('Density',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H), sc('Note',H)),
     ]
     r_ms = 0; r_mat = 0.0; r_mach = 0.0; r_ml = 0.0; r_elec = 0.0; r_mat_tots = {}
     for s in r_sess:
@@ -316,7 +318,8 @@ def generate_ods(payload):
             sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
             sc(ms_hm(ms)), sc(mat),
             nc(ml,2) if ml else sc('—'), nc(cpkg,2) if cpkg else sc('—'), nc(dens,2),
-            cc(rc) if rc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(rc+mach+ec)))
+            cc(rc) if rc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(rc+mach+ec),
+            sc(s.get('note') or '')))
     r_rows += [blank(), row(sc('Subtotals by Material', B)),
                row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('mL',H),
                    sc('',H), sc('',H), sc('',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H))]
@@ -392,9 +395,9 @@ def generate_ods(payload):
   </office:automatic-styles>
   <office:body><office:spreadsheet>
     {mksheet("Summary",  s_rows,  ncols=3)}
-    {mksheet("Design",   d_rows,  ncols=6)}
-    {mksheet("FDM",      f_rows,  ncols=11)}
-    {mksheet("Resin",    r_rows,  ncols=12)}
+    {mksheet("Design",   d_rows,  ncols=7)}
+    {mksheet("FDM",      f_rows,  ncols=12)}
+    {mksheet("Resin",    r_rows,  ncols=13)}
     {mksheet("Receipts", rec_rows,ncols=2)}
   </office:spreadsheet></office:body>
 </office:document-content>'''
