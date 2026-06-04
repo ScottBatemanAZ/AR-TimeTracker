@@ -291,6 +291,9 @@ git pull && docker compose restart
 | Feature | Notes |
 |---|---|
 | **Proton Drive integration** | Waiting for public Proton Drive API |
+| **Configurable branding** | config.json for logo, colors, company name — for self-hosters; server serves /app-config, frontend applies on load |
+| **Hosted version (SaaS)** | Requires full backend DB rewrite (localStorage won't work multi-user); Moonraker integration breaks without local agent or VPN/tunnel solution (Tailscale, Cloudflare Tunnel, etc.) — different product, not a deployment change |
+| **Client-side DB for hosted** | File System Access API or IndexedDB as a local data store — "website is just the UI, data lives on the user's machine"; meaningful data layer refactor but same UI; solves privacy/cost concerns for hosted; Moonraker still needs tunnel |
 
 ---
 
