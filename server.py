@@ -18,7 +18,7 @@ from datetime import datetime
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_VERSION  = "1.2"
-TRACKER_VERSION = "Beta 9.2"
+TRACKER_VERSION = "Beta 9.3"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
@@ -270,7 +270,8 @@ def generate_ods(payload):
         ms   = int(s['end']) - int(s['start']); mach = ms_hrs(ms) * fdm_rate
         fc   = fil_cost(s); ec = elec_cost(s, fdm_printers)
         g    = float(s.get('filamentG') or 0)
-        cpkg = float(s.get('filamentCostPerKg') or 0); mat = s.get('filamentType') or '—'
+        cpkg = float(s.get('filamentCostPerKg') or 0)
+        mat  = (s.get('filamentType') or '—') + (' ⚠FAILED' if s.get('failed') else '')
         f_ms += ms; f_fil += fc; f_mach += mach; f_g += g; f_elec += ec
         f_mat_tots.setdefault(mat, {'ms':0,'g':0.0,'fil':0.0,'mach':0.0,'elec':0.0})
         f_mat_tots[mat]['ms'] += ms; f_mat_tots[mat]['g'] += g
@@ -306,7 +307,7 @@ def generate_ods(payload):
         rc   = res_cost(s); ec = elec_cost(s, resin_printers)
         ml   = float(s.get('resinMl') or 0)
         cpkg = float(s.get('resinCostPerKg') or 0); dens = float(s.get('resinDensity') or 1.10)
-        mat  = s.get('resinType') or '—'
+        mat  = (s.get('resinType') or '—') + (' ⚠FAILED' if s.get('failed') else '')
         r_ms += ms; r_mat += rc; r_mach += mach; r_ml += ml; r_elec += ec
         r_mat_tots.setdefault(mat, {'ms':0,'ml':0.0,'mat':0.0,'mach':0.0,'elec':0.0})
         r_mat_tots[mat]['ms'] += ms; r_mat_tots[mat]['ml'] += ml

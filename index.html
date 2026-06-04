@@ -186,6 +186,10 @@
   .session-mat-edit { background: none; border: none; color: var(--dim); font-family: var(--mono); font-size: 9px; cursor: pointer; text-decoration: underline; padding: 0; }
   .session-mat-edit:hover { color: var(--amber); }
   .session-manual-tag { font-family: var(--mono); font-size: 8px; color: var(--dim); border: 1px solid var(--dim); border-radius: 2px; padding: 0 3px; margin-left: 4px; vertical-align: middle; }
+  .session-failed-tag { font-family: var(--mono); font-size: 8px; color: var(--red); border: 1px solid var(--red); border-radius: 2px; padding: 0 3px; margin-left: 4px; vertical-align: middle; letter-spacing: .05em; }
+  .session-entry-failed { border-left: 3px solid var(--red); padding-left: 8px; background: rgba(226,75,74,.04); border-radius: 2px; }
+  .manual-link.failure { color: var(--dim); }
+  .manual-link.failure:hover { color: var(--red); }
   .empty-state { font-size: 11px; color: var(--dim); font-family: var(--mono); padding: 10px 0; }
 
   .receipt-add { display: grid; grid-template-columns: 1fr 68px auto; gap: 5px; margin-bottom: 10px; align-items: end; }
@@ -222,6 +226,7 @@
   .modal-title.manual-design { color: var(--accent); }
   .modal-title.manual-fdm   { color: var(--green-bright); }
   .modal-title.manual-resin { color: var(--blue-bright); }
+  .modal-title.modal-title-red { color: var(--red); }
   .form-row { margin-bottom: 14px; }
   .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   .modal-section-rule { border: none; border-top: 1px solid rgba(127,119,221,.35); margin: 16px 0 14px; }
@@ -360,6 +365,7 @@
             <div class="clock-status" id="fdmStatus">Not running</div>
             <div class="punch-since" id="fdmSince"></div>
             <button class="manual-link" onclick="openManual('fdm')">＋ log manual time</button>
+            <button class="manual-link failure" onclick="logFailedPrint('fdm')">⚠ log failed print</button>
           </div>
           <div class="printer-cards" id="fdmPrinterCards"></div>
         </div>
@@ -380,6 +386,7 @@
             <div class="clock-status" id="resinStatus">Not running</div>
             <div class="punch-since" id="resinSince"></div>
             <button class="manual-link" onclick="openManual('resin')">＋ log manual time</button>
+            <button class="manual-link failure" onclick="logFailedPrint('resin')">⚠ log failed print</button>
           </div>
           <div class="printer-cards" id="resinPrinterCards"></div>
         </div>
@@ -457,7 +464,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.2</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.3</span></span>
     </footer>
   </div>
 </div>
@@ -1300,7 +1307,8 @@ function renderSessions(type) {
   if(!sessions.length){log.innerHTML='<div class="empty-state">No sessions yet.</div>';return;}
   log.innerHTML=sessions.map((s,ri)=>{
     const i=(p[type+'Sessions'].length-1)-ri, ms=sessionMs(s), active=!s.end;
-    const manTag=s.manual?'<span class="session-manual-tag">manual</span>':'';
+    const manTag=s.manual&&!s.failed?'<span class="session-manual-tag">manual</span>':'';
+    const failTag=s.failed?'<span class="session-failed-tag">failed</span>':'';
     let billHtml='', matHtml='';
     if(type==='design'){
       const bill=(ms/3600000)*settings.laborRate;
@@ -1338,9 +1346,9 @@ function renderSessions(type) {
     }
     const isLivePrint = active && type === 'fdm' && s.auto;
     const liveBadge   = isLivePrint ? '<div class="session-live-badge">▶ Print in Progress</div>' : '';
-    return `<div class="session-entry${isLivePrint?' session-entry-live':''}">
+    return `<div class="session-entry${isLivePrint?' session-entry-live':''}${s.failed?' session-entry-failed':''}">
     ${liveBadge}<div class="session-row">
-      <div class="session-time">${active?'● ':''} ${fmtDT(s.start)}${s.end?' → '+fmtDT(s.end):'(active)'}${manTag}</div>
+      <div class="session-time">${active?'● ':''} ${fmtDT(s.start)}${s.end?' → '+fmtDT(s.end):'(active)'}${manTag}${failTag}</div>
       <div class="session-dur">${active?'running':fmt(ms)}</div>
       ${billHtml}
       <button class="session-delete" onclick="deleteSession('${type}',${i})">✕</button>
@@ -1656,12 +1664,23 @@ function updateResinPreview() {
     el.textContent=ml.toFixed(1)+'mL × '+density.toFixed(2)+'g/mL = '+grams.toFixed(1)+'g = '+fmtMoney(cost);
   } else { el.textContent=''; }
 }
+function logFailedPrint(type) {
+  if (!activeProject) return;
+  const now = Date.now();
+  const session = {id:genId(), start:now, end:now, failed:true, manual:true};
+  activeProject[type+'Sessions'].push(session);
+  const idx = activeProject[type+'Sessions'].length - 1;
+  pendingMaterial = {type, sessionIdx:idx};
+  openMaterialModal(type, idx);
+}
+
 function openMaterialModal(type,sessionIdx) {
   const titleEl=document.getElementById('materialModalTitle');
   document.getElementById('fdmMatForm').style.display=type==='fdm'?'block':'none';
   document.getElementById('resinMatForm').style.display=type==='resin'?'block':'none';
+  const isFail = (activeProject[type+'Sessions']||[])[sessionIdx]?.failed;
   if(type==='fdm'){
-    titleEl.textContent='FDM — Log Filament'; titleEl.className='modal-title fdm-color';
+    titleEl.textContent=isFail?'FDM — Log Failed Print':'FDM — Log Filament'; titleEl.className='modal-title '+(isFail?'modal-title-red':'fdm-color');
     const s=activeProject.fdmSessions[sessionIdx];
     // Auto-select filament type: prefer already-saved, then match slicer type against library
     let autoType = s.filamentType || '';
@@ -1702,7 +1721,7 @@ function openMaterialModal(type,sessionIdx) {
     document.getElementById('matSessionEnd').value=s.end?toDatetimeLocal(s.end):'';
     setTimeout(()=>document.getElementById('matGrams').focus(),50);
   } else {
-    titleEl.textContent='Resin — Log Material'; titleEl.className='modal-title resin-color';
+    titleEl.textContent=isFail?'Resin — Log Failed Print':'Resin — Log Material'; titleEl.className='modal-title '+(isFail?'modal-title-red':'resin-color');
     const s=activeProject.resinSessions[sessionIdx];
     buildResinSelect(s.resinType||'');
     const rt=settings.resinTypes.find(r=>r.name===s.resinType);
@@ -1883,9 +1902,9 @@ function generateInvoice(withMarkup) {
   const notes       = document.getElementById('exportNotes').value.trim();
   const markupPct   = parseFloat(document.getElementById('exportMarkupPct').value) || 3;
 
-  const dSessions = (proj.designSessions||[]).filter(s=>s.end);
-  const fSessions = (proj.fdmSessions||[]).filter(s=>s.end);
-  const rSessions = (proj.resinSessions||[]).filter(s=>s.end);
+  const dSessions = (proj.designSessions||[]).filter(s=>s.end&&!s.failed);
+  const fSessions = (proj.fdmSessions||[]).filter(s=>s.end&&!s.failed);
+  const rSessions = (proj.resinSessions||[]).filter(s=>s.end&&!s.failed);
 
   const designMs  = dSessions.reduce((sum,s)=>sum+(s.end-s.start),0);
   const designHrs = designMs/3600000;
