@@ -1,7 +1,12 @@
 # Backups & temp
 *.bak
+*.ods
+*-Backup-*.json
 patch.py
 Thumbs.db
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+
+# VS Code local workspace settings (editor preference, not project config)
+.vscode/

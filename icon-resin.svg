@@ -1,0 +1,7 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Style: stroke-only, no fill, rounded caps and joins, 24x24 grid -->
+<path d="M46.924,180.121h162.153
+	v58.838H46.924V180.121z M209.076,174.169H46.924L60.822,17.041h135.746L209.076,174.169z M91.747,180.121h69.494v29.419H91.747
+	V180.121z M78.312,72.836h98.681 M113.522,46.169h29.188v21.333h-29.188V46.169z M127.653,72.836v101.333"/>
+</svg>
