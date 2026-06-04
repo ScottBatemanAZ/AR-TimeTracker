@@ -63,6 +63,7 @@ docker compose up -d      # Docker: git pull && docker compose restart to deploy
 // Project (ar_tracker_v1 → data.projects[])
 {
   id, name, scope, created,
+  status?,           // 'active' | 'on-hold' | 'complete' — sidebar dot color
   designSessions: [{
     id, start, end,
     manual?,           // true = logged manually
@@ -71,6 +72,7 @@ docker compose up -d      # Docker: git pull && docker compose restart to deploy
   fdmSessions: [{
     id, start, end,
     manual?, auto?,    // auto = started/stopped by Moonraker
+    printerId?,        // links session to a specific printer in settings.fdmPrinters
     filamentG,         // grams used (saved after material modal)
     filamentType,      // e.g. 'PLA'
     filamentCostPerKg,
@@ -80,6 +82,7 @@ docker compose up -d      # Docker: git pull && docker compose restart to deploy
   resinSessions: [{
     id, start, end,
     manual?,
+    printerId?,        // links session to a specific printer in settings.resinPrinters
     resinMl, resinType, resinCostPerKg, resinDensity
   }],
   receipts: [{ id, desc, amount }]
@@ -88,6 +91,8 @@ docker compose up -d      # Docker: git pull && docker compose restart to deploy
 // Settings (ar_tracker_settings)
 {
   laborRate, fdmRate, resinRate,
+  fdmPrinters:   [{ id, name, moonrakerUrl }],  // synced to printers.json via /update-printers
+  resinPrinters: [{ id, name, moonrakerUrl }],
   filamentTypes: [{ name, costPerKg, densityGPerCm3 }],
   resinTypes:    [{ name, costPerKg, densityGPerMl }]
 }
