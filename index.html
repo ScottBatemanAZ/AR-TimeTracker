@@ -280,6 +280,9 @@
       <button class="new-project-btn" onclick="openNewProject()">+ New Project</button>
       <button class="settings-btn" onclick="openSettings()" title="Rates & Settings">⚙</button>
     </div>
+    <div style="padding:6px 10px 2px;">
+      <input type="text" id="sidebarSearch" placeholder="Search projects…" oninput="sidebarFilter=this.value;renderSidebar();" style="width:100%;box-sizing:border-box;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:5px 8px;outline:none;" />
+    </div>
     <div class="project-list" id="projectList"></div>
     <div class="sidebar-data">
       <button class="data-btn" onclick="exportBackup()" title="Download all projects + settings as a JSON backup">⬇ Backup</button>
@@ -298,11 +301,15 @@
 
     <div id="projectView" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
       <div class="topbar">
-        <div style="min-width:0;flex:1;">
-          <div class="project-title" id="viewTitle"></div>
-          <div class="project-scope" id="viewScope"></div>
+        <div style="min-width:0;flex:1;display:flex;align-items:baseline;gap:12px;">
+          <div>
+            <div class="project-title" id="viewTitle"></div>
+            <div class="project-scope" id="viewScope"></div>
+          </div>
+          <div id="topbarCost" style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--amber);white-space:nowrap;display:none;"></div>
         </div>
         <div class="topbar-actions">
+          <button class="btn" onclick="showShortcuts()" title="Keyboard shortcuts" style="padding:7px 10px;font-size:12px;">?</button>
           <button class="btn" onclick="editProject()">Edit</button>
           <button class="btn btn-export" onclick="openExportModal()">Export</button>
           <button class="btn btn-danger" onclick="deleteProject()">Delete</button>
@@ -465,7 +472,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.8</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta 10.0.0</span></span>
     </footer>
   </div>
 </div>
@@ -496,6 +503,29 @@
       <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Invoice — + Markup</button>
       <button class="btn-create" style="background:rgba(93,202,165,.08);border-color:rgba(93,202,165,.5);color:var(--green-bright);" onclick="exportTrackingLog()">Tracking Log (.ods)</button>
       <button class="btn-create" style="background:rgba(93,202,165,.04);border-color:rgba(93,202,165,.3);color:var(--green-bright);opacity:.85;" onclick="exportCsv()">Tracking Log (.csv)</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHORTCUTS MODAL -->
+<div class="modal-backdrop" id="shortcutsModal">
+  <div class="modal" style="width:400px;">
+    <div class="modal-title" style="color:var(--accent);">Keyboard Shortcuts</div>
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:8px 16px;font-family:var(--mono);font-size:11px;margin-bottom:20px;">
+      <span style="color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 8px;text-align:center;">Space</span>
+      <span style="color:var(--muted);align-self:center;">Start / stop active timer (Design → FDM → Resin priority)</span>
+      <span style="color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 8px;text-align:center;">N</span>
+      <span style="color:var(--muted);align-self:center;">New project</span>
+      <span style="color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 8px;text-align:center;">E</span>
+      <span style="color:var(--muted);align-self:center;">Open export modal</span>
+      <span style="color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 8px;text-align:center;">Esc</span>
+      <span style="color:var(--muted);align-self:center;">Close any open modal</span>
+      <span style="color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 8px;text-align:center;">?</span>
+      <span style="color:var(--muted);align-self:center;">Show this panel</span>
+    </div>
+    <div style="font-size:9.5px;color:var(--dim);font-family:var(--mono);">Shortcuts are disabled while typing in any input field.</div>
+    <div class="modal-actions">
+      <button class="btn-create" onclick="closeModal('shortcutsModal')">Got it</button>
     </div>
   </div>
 </div>
@@ -1105,11 +1135,14 @@ function calcRollup(parentId) {
 const collapsedParents=new Set();
 
 // ── SIDEBAR ───────────────────────────────────────────────────────────
+let sidebarFilter = '';
 function renderSidebar() {
   updateGlobalStats();
   const list=document.getElementById('projectList');
   list.innerHTML='';
-  const topLevel=data.projects.filter(p=>!p.parentId);
+  const q=sidebarFilter.trim().toLowerCase();
+  const matches=p=>!q||p.name.toLowerCase().includes(q);
+  const topLevel=data.projects.filter(p=>!p.parentId).filter(p=>matches(p)||getChildren(p.id).some(matches));
   topLevel.forEach(p=>{
     const isPar=isParentProject(p);
     const isActive=activeProject&&activeProject.id===p.id;
@@ -1131,7 +1164,7 @@ function renderSidebar() {
       div.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(p.id);};
       list.appendChild(div);
       if(!collapsed){
-        getChildren(p.id).forEach(c=>{
+        getChildren(p.id).filter(matches).forEach(c=>{
           const cActive=activeProject&&activeProject.id===c.id;
           const cAny=hasAnyActive(c);
           const cStatus=c.status||'active';
@@ -1322,6 +1355,8 @@ function updateLiveStats() {
   document.getElementById('statResinMat').textContent=fmtMoney(rc.matCost);
   document.getElementById('statReceiptsLine').textContent='Receipts: '+fmtMoney(exp);
   document.getElementById('statTotal').textContent=fmtMoney(grand);
+  const badge=document.getElementById('topbarCost');
+  if(badge){badge.textContent=fmtMoney(grand);badge.style.display=grand>0?'':'none';}
   ['design','fdm','resin'].forEach(type=>{
     let ms;
     if(isClockedIn(p,type)){const last=p[type+'Sessions'][p[type+'Sessions'].length-1];ms=Date.now()-last.start;}
@@ -2520,6 +2555,34 @@ function importBackup() {
   };
   input.click();
 }
+
+// ── SHORTCUTS ─────────────────────────────────────────────────────────
+function showShortcuts() {
+  document.getElementById('shortcutsModal').classList.add('open');
+}
+
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  const anyModalOpen = document.querySelector('.modal-backdrop.open');
+
+  if (e.key === '?') { e.preventDefault(); showShortcuts(); return; }
+  if (anyModalOpen) return;
+
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    if (!activeProject || isParentProject(activeProject)) return;
+    for (const type of ['design','fdm','resin']) {
+      if (isClockedIn(activeProject, type)) { togglePunch(type); return; }
+    }
+    // Nothing running — start design (opens subtype picker)
+    togglePunch('design');
+    return;
+  }
+
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openNewProject(); return; }
+  if ((e.key === 'e' || e.key === 'E') && activeProject) { e.preventDefault(); openExportModal(); return; }
+});
 
 // ── INIT ──────────────────────────────────────────────────────────────
 loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
