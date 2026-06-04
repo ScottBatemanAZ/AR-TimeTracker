@@ -18,7 +18,7 @@ from datetime import datetime
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_VERSION  = "1.2"
-TRACKER_VERSION = "Beta 9.7"
+TRACKER_VERSION = "Beta 9.8"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
@@ -275,6 +275,7 @@ def generate_ods(payload):
             sc('Grams',H), sc('$/kg',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H), sc('Note',H)),
     ]
     f_ms = 0; f_fil = 0.0; f_mach = 0.0; f_g = 0.0; f_elec = 0.0; f_mat_tots = {}
+    f_failed_cost = 0.0
     for s in f_sess:
         ms   = int(s['end']) - int(s['start']); mach = ms_hrs(ms) * fdm_rate
         fc   = fil_cost(s); ec = elec_cost(s, fdm_printers)
@@ -282,6 +283,7 @@ def generate_ods(payload):
         cpkg = float(s.get('filamentCostPerKg') or 0)
         mat  = (s.get('filamentType') or '—') + (' ⚠FAILED' if s.get('failed') else '')
         f_ms += ms; f_fil += fc; f_mach += mach; f_g += g; f_elec += ec
+        if s.get('failed'): f_failed_cost += fc + mach + ec
         f_mat_tots.setdefault(mat, {'ms':0,'g':0.0,'fil':0.0,'mach':0.0,'elec':0.0})
         f_mat_tots[mat]['ms'] += ms; f_mat_tots[mat]['g'] += g
         f_mat_tots[mat]['fil'] += fc; f_mat_tots[mat]['mach'] += mach; f_mat_tots[mat]['elec'] += ec
@@ -312,6 +314,7 @@ def generate_ods(payload):
             sc('mL',H), sc('$/kg',H), sc('Density',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H), sc('Note',H)),
     ]
     r_ms = 0; r_mat = 0.0; r_mach = 0.0; r_ml = 0.0; r_elec = 0.0; r_mat_tots = {}
+    r_failed_cost = 0.0
     for s in r_sess:
         ms   = int(s['end']) - int(s['start']); mach = ms_hrs(ms) * resin_rate
         rc   = res_cost(s); ec = elec_cost(s, resin_printers)
@@ -319,6 +322,7 @@ def generate_ods(payload):
         cpkg = float(s.get('resinCostPerKg') or 0); dens = float(s.get('resinDensity') or 1.10)
         mat  = (s.get('resinType') or '—') + (' ⚠FAILED' if s.get('failed') else '')
         r_ms += ms; r_mat += rc; r_mach += mach; r_ml += ml; r_elec += ec
+        if s.get('failed'): r_failed_cost += rc + mach + ec
         r_mat_tots.setdefault(mat, {'ms':0,'ml':0.0,'mat':0.0,'mach':0.0,'elec':0.0})
         r_mat_tots[mat]['ms'] += ms; r_mat_tots[mat]['ml'] += ml
         r_mat_tots[mat]['mat'] += rc; r_mat_tots[mat]['mach'] += mach; r_mat_tots[mat]['elec'] += ec
@@ -376,6 +380,13 @@ def generate_ods(payload):
         row(sc(f'Markup ({markup_pct:.1f}%)'), sc(''),                           cc(markup_amt)),
         row(sc('Total (with markup)',B),sc(''),                                  cc(grand_total,B)),
     ]
+    if f_failed_cost or r_failed_cost:
+        s_rows.append(blank())
+        s_rows.append(row(sc('— Failed Prints (not billed, included above) —')))
+        if f_failed_cost:
+            s_rows.append(row(sc('Failed FDM Prints'), sc(''), cc(-f_failed_cost)))
+        if r_failed_cost:
+            s_rows.append(row(sc('Failed Resin Prints'), sc(''), cc(-r_failed_cost)))
 
     # ── ASSEMBLE XML ──────────────────────────────────────────────────────
     auto_styles = '''

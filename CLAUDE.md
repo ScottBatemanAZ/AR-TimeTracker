@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** Beta v9.7 | **Server:** v1.2
+**Current version:** Beta v9.8 | **Server:** v1.2
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -342,3 +342,4 @@ git pull && docker compose restart
 | Beta v9.5 | CSV export — flat session dump (Design + FDM + Resin) as downloadable .csv; "Tracking Log (.csv)" button in Export modal; pure frontend, no server needed |
 | Beta v9.6 | Client field on projects — optional Client input in project modal; stored as `client` on project; auto-fills invoice Bill To on Export modal open |
 | Beta v9.7 | Time estimates — Settings toggle (`showEstimates`); FDM `estimatedSecs` auto-captured from Moonraker `estimated_time` at punch-in; Design `estimatedHours` field per project; Est / Actual shown in parent summary table |
+| Beta v9.8 | ODS failed print cost lines — Summary tab shows blank row + "Failed FDM/Resin Prints -$x" below Grand Total when failed sessions exist; cost tracked, not billed |
