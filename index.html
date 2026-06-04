@@ -465,7 +465,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.6</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.7</span></span>
     </footer>
   </div>
 </div>
@@ -555,6 +555,10 @@
     <div class="form-row">
       <label class="form-label">Client</label>
       <input type="text" id="modalClient" placeholder="Client name / company (used in invoice Bill To)" />
+    </div>
+    <div class="form-row" id="estimatedHoursRow" style="display:none;">
+      <label class="form-label">Est. Hours (Design)</label>
+      <input type="number" id="modalEstHours" min="0" step="0.5" placeholder="Optional — shown vs. actual on summary" />
     </div>
     <div class="form-row">
       <label class="form-label">Scope / Notes</label>
@@ -733,7 +737,13 @@
         <label class="form-label">Electricity ($/kWh)</label>
         <input type="number" id="setElectricityRate" step="0.01" min="0" placeholder="e.g. 0.12" />
       </div>
-      <div></div>
+      <div class="form-row" style="align-items:center;">
+        <label class="form-label" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="setShowEstimates" style="accent-color:var(--accent);width:14px;height:14px;" />
+          Show time estimates
+        </label>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);">FDM: auto-pulled from Moonraker · Design/Resin: set per-project</div>
+      </div>
     </div>
 
     <div class="settings-section">Filament Types, Costs &amp; Density</div>
@@ -807,7 +817,7 @@
 <script>
 // ── DEFAULTS ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  laborRate: 40, fdmRate: 5, resinRate: 2, electricityRate: 0.12,
+  laborRate: 40, fdmRate: 5, resinRate: 2, electricityRate: 0.12, showEstimates: false,
   fdmPrinters:   [{id:'fdm-0', name:'Neptune 4 Plus', moonrakerUrl:'http://192.168.0.74', wattage:350}],
   resinPrinters: [],
   filamentTypes: [
@@ -871,6 +881,7 @@ function openSettings() {
   document.getElementById('setFdmRate').value         = settings.fdmRate;
   document.getElementById('setResinRate').value       = settings.resinRate;
   document.getElementById('setElectricityRate').value = settings.electricityRate ?? 0.12;
+  document.getElementById('setShowEstimates').checked = !!settings.showEstimates;
   renderFilamentTypesList();
   renderResinTypesList();
   renderFdmPrintersList();
@@ -981,6 +992,7 @@ function saveSettingsModal() {
   settings.fdmRate         = n('setFdmRate',         DEFAULT_SETTINGS.fdmRate);
   settings.resinRate       = n('setResinRate',       DEFAULT_SETTINGS.resinRate);
   settings.electricityRate = n('setElectricityRate', 0.12);
+  settings.showEstimates   = document.getElementById('setShowEstimates').checked;
   persistSettings();
   fetch('/update-printers', {
     method: 'POST',
@@ -1170,15 +1182,28 @@ function renderParentSummary(p) {
   const children=getChildren(p.id);
   const roll=calcRollup(p.id);
   const el=document.getElementById('parentSummaryView');
+  const showEst=!!settings.showEstimates;
+
+  // helper: sum estimated FDM hours for a project
+  function fdmEstH(c) { return (c.fdmSessions||[]).reduce((s,x)=>s+(x.estimatedSecs||0),0)/3600; }
+
   let rows='';
   children.forEach(c=>{
     const dc=calcDesign(c),fc=calcFdm(c),rc=calcResin(c);
     const tot=dc.cost+fc.total+rc.total+calcReceipts(c);
     const status=c.status||'active';
+    const desEst=c.estimatedHours||null;
+    const fdmEst=fdmEstH(c);
+    const desCell=showEst&&desEst!=null
+      ? `${dc.hours.toFixed(1)}h<span style="color:var(--dim);font-size:9px;"> / ${desEst.toFixed(1)}est</span>`
+      : `${dc.hours.toFixed(1)}h`;
+    const fdmCell=showEst&&fdmEst>0
+      ? `${fc.hours.toFixed(1)}h<span style="color:var(--dim);font-size:9px;"> / ${fdmEst.toFixed(1)}est</span>`
+      : `${fc.hours.toFixed(1)}h`;
     rows+=`<tr onclick="selectProject('${c.id}')">
       <td><span class="status-dot ${status}" style="display:inline-block;margin-right:6px;"></span>${esc(c.name)}</td>
-      <td style="color:var(--accent)">${dc.hours.toFixed(1)}h</td>
-      <td style="color:var(--green-bright)">${fc.hours.toFixed(1)}h</td>
+      <td style="color:var(--accent)">${desCell}</td>
+      <td style="color:var(--green-bright)">${fdmCell}</td>
       <td style="color:var(--blue-bright)">${rc.hours.toFixed(1)}h</td>
       <td>${fmtMoney(tot)}</td>
     </tr>`;
@@ -1186,7 +1211,7 @@ function renderParentSummary(p) {
   el.innerHTML=`
     <table class="parent-summary-table">
       <thead><tr>
-        <th>Sub-Project</th><th>Design</th><th>FDM</th><th>Resin</th><th>Total</th>
+        <th>Sub-Project</th><th>Design${showEst?' / Est':''}.</th><th>FDM${showEst?' / Est':''}.</th><th>Resin</th><th>Total</th>
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr class="total-row">
@@ -1433,7 +1458,9 @@ function togglePunch(type) {
     if (type === 'design') { openSubtypePicker('new'); return; }
     const printerList = type==='fdm' ? settings.fdmPrinters : settings.resinPrinters;
     const printerId = printerList.length===1 ? printerList[0].id : null;
-    activeProject[key].push({id:genId(),start:Date.now(),end:null,...(printerId?{printerId}:{})});
+    const _tpEst = settings.showEstimates&&type==='fdm'&&printerId ? ((window._lastPrinterStates||{})[printerId]||{}).estimated_time||0 : 0;
+    activeProject[key].push({id:genId(),start:Date.now(),end:null,...(printerId?{printerId}:{}),
+      ...(_tpEst?{estimatedSecs:_tpEst}:{})});
     saveData();
     clearInterval(timerInterval);
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
@@ -1455,7 +1482,8 @@ function togglePrinterPunch(type, printerId) {
     pendingMaterial = {type, sessionIdx: activeIdx};
     openMaterialModal(type, activeIdx);
   } else {
-    sessions.push({id:genId(), start:Date.now(), end:null, printerId});
+    const _tppEst = settings.showEstimates&&type==='fdm' ? ((window._lastPrinterStates||{})[printerId]||{}).estimated_time||0 : 0;
+    sessions.push({id:genId(), start:Date.now(), end:null, printerId, ...(_tppEst?{estimatedSecs:_tppEst}:{})});
     saveData();
     clearInterval(timerInterval);
     timerInterval = setInterval(()=>{updateLiveStats();renderSidebar();},1000);
@@ -1831,6 +1859,8 @@ function openNewProject(){
   document.getElementById('modalTitle').textContent='New Project';
   document.getElementById('modalName').value='';
   document.getElementById('modalClient').value='';
+  document.getElementById('modalEstHours').value='';
+  document.getElementById('estimatedHoursRow').style.display=settings.showEstimates?'':'none';
   document.getElementById('modalScope').value='';
   document.getElementById('modalSaveBtn').textContent='Create Project';
   populateParentPicker(null);
@@ -1849,6 +1879,8 @@ function editProject(){
   document.getElementById('modalTitle').textContent='Edit Project';
   document.getElementById('modalName').value=activeProject.name;
   document.getElementById('modalClient').value=activeProject.client||'';
+  document.getElementById('modalEstHours').value=activeProject.estimatedHours||'';
+  document.getElementById('estimatedHoursRow').style.display=settings.showEstimates?'':'none';
   document.getElementById('modalScope').value=activeProject.scope||'';
   document.getElementById('modalSaveBtn').textContent='Save Changes';
   document.getElementById('parentPickerRow').style.display='none';
@@ -1859,16 +1891,18 @@ function saveProject(){
   const name=document.getElementById('modalName').value.trim();
   if(!name) return;
   const client=document.getElementById('modalClient').value.trim();
+  const estH=parseFloat(document.getElementById('modalEstHours').value)||undefined;
   const scope=document.getElementById('modalScope').value.trim();
   if(editingId){
     const p=data.projects.find(x=>x.id===editingId);
-    if(p){p.name=name;p.client=client||undefined;p.scope=scope;}
+    if(p){p.name=name;p.client=client||undefined;p.estimatedHours=estH;p.scope=scope;}
     saveData(); closeModal('projectModal'); renderSidebar();
     if(activeProject&&activeProject.id===editingId) renderProject();
   } else {
     const parentId=document.getElementById('modalParent').value||null;
     const proj={id:genId(),name,scope,status:'active',designSessions:[],fdmSessions:[],resinSessions:[],receipts:[],created:Date.now()};
     if(client) proj.client=client;
+    if(estH)   proj.estimatedHours=estH;
     if(parentId) proj.parentId=parentId;
     data.projects.push(proj);
     saveData(); closeModal('projectModal'); renderSidebar(); selectProject(proj.id);
@@ -2311,7 +2345,7 @@ function updatePrinterDot(reachable, status) {
 function processPrinterState(type, printer, ps) {
   const pid = printer.id;
   if (!ps) { printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1; return; }
-  const { status, reachable, print_duration, filament_used, filament_type, filament_name } = ps;
+  const { status, reachable, print_duration, filament_used, filament_type, filament_name, estimated_time } = ps;
 
   if (reachable) printerUnreachCounts[pid] = 0;
   else           printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1;
@@ -2341,7 +2375,8 @@ function processPrinterState(type, printer, ps) {
     const backdateMs = Math.max(0, (print_duration||0)*1000);
     if (!activeProject[type+'Sessions']) activeProject[type+'Sessions']=[];
     activeProject[type+'Sessions'].push({id:genId(), start:Date.now()-backdateMs, end:null, auto:true, printerId:pid,
-      ...(type==='fdm'?{slicerFilamentType:filament_type||'',slicerFilamentName:filament_name||''}:{})});
+      ...(type==='fdm'?{slicerFilamentType:filament_type||'',slicerFilamentName:filament_name||''}:{}),
+      ...(settings.showEstimates&&type==='fdm'&&estimated_time?{estimatedSecs:estimated_time}:{})});
     saveData(); clearInterval(timerInterval);
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
     renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
@@ -2351,7 +2386,8 @@ function processPrinterState(type, printer, ps) {
   if (prev !== undefined && !wasPrinting && isPrinting && !isClockedInFor(activeProject, type, pid)) {
     if (!activeProject[type+'Sessions']) activeProject[type+'Sessions']=[];
     activeProject[type+'Sessions'].push({id:genId(), start:Date.now(), end:null, auto:true, printerId:pid,
-      ...(type==='fdm'?{slicerFilamentType:filament_type||'',slicerFilamentName:filament_name||''}:{})});
+      ...(type==='fdm'?{slicerFilamentType:filament_type||'',slicerFilamentName:filament_name||''}:{}),
+      ...(settings.showEstimates&&type==='fdm'&&estimated_time?{estimatedSecs:estimated_time}:{})});
     saveData(); clearInterval(timerInterval);
     timerInterval=setInterval(()=>{updateLiveStats();renderSidebar();},1000);
     renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
@@ -2423,7 +2459,9 @@ function resumePrintTracking() {
   if (!printer) return;
   const _pid2 = printer.id;
   if (!activeProject.fdmSessions) activeProject.fdmSessions = [];
-  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, printerId: _pid2 });
+  const _resumeEst = settings.showEstimates ? ((window._lastPrinterStates||{})[_pid2]||{}).estimated_time||0 : 0;
+  activeProject.fdmSessions.push({ id: genId(), start: Date.now(), end: null, auto: true, printerId: _pid2,
+    ...(_resumeEst?{estimatedSecs:_resumeEst}:{}) });
   saveData();
   clearInterval(timerInterval);
   timerInterval = setInterval(() => { updateLiveStats(); renderSidebar(); }, 1000);

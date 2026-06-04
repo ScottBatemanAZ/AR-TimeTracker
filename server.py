@@ -18,7 +18,7 @@ from datetime import datetime
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_VERSION  = "1.2"
-TRACKER_VERSION = "Beta 9.6"
+TRACKER_VERSION = "Beta 9.7"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
@@ -47,6 +47,7 @@ def _blank_state(name=''):
     return {"name": name, "status": "unknown", "filename": "",
             "print_duration": 0, "filament_used": 0,
             "filament_type": "", "filament_name": "",
+            "estimated_time": 0,
             "last_checked": 0, "reachable": False}
 
 def load_printers_config():
@@ -111,10 +112,17 @@ def fetch_metadata(printer_id, base_url, filename):
     else:
         print(f"  [meta:{printer_id}] {filename}: type={filament_type!r} name={filament_name!r}")
 
+    estimated_time = 0
+    try:
+        estimated_time = float(meta.get("estimated_time", 0) or 0)
+    except Exception:
+        pass
+
     with states_lock:
         if printer_id in printer_states:
-            printer_states[printer_id]["filament_type"] = filament_type
-            printer_states[printer_id]["filament_name"] = filament_name
+            printer_states[printer_id]["filament_type"]  = filament_type
+            printer_states[printer_id]["filament_name"]  = filament_name
+            printer_states[printer_id]["estimated_time"] = estimated_time
     _last_meta[printer_id] = filename
 
 def poll_printer(printer):
