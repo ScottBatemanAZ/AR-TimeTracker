@@ -465,7 +465,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.4</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.5</span></span>
     </footer>
   </div>
 </div>
@@ -495,6 +495,7 @@
       <button class="btn-create" onclick="generateInvoice(false)">Invoice — Actual</button>
       <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Invoice — + Markup</button>
       <button class="btn-create" style="background:rgba(93,202,165,.08);border-color:rgba(93,202,165,.5);color:var(--green-bright);" onclick="exportTrackingLog()">Tracking Log (.ods)</button>
+      <button class="btn-create" style="background:rgba(93,202,165,.04);border-color:rgba(93,202,165,.3);color:var(--green-bright);opacity:.85;" onclick="exportCsv()">Tracking Log (.csv)</button>
     </div>
   </div>
 </div>
@@ -2102,6 +2103,65 @@ async function exportTrackingLog() {
   } catch (e) {
     alert('ODS export failed: ' + e.message + '\n\nMake sure the server is running.');
   }
+}
+
+// ── CSV EXPORT ────────────────────────────────────────────────────────
+function exportCsv() {
+  if (!activeProject) return;
+  closeModal('exportModal');
+  const proj = activeProject;
+  const safe = proj.name.replace(/[^A-Za-z0-9_-]/g, '_');
+  const fmtTs = ms => ms ? new Date(ms).toISOString().replace('T',' ').slice(0,19) : '';
+  const fmtH  = ms => ms ? (ms/3600000).toFixed(4) : '0';
+  const csvRow = cols => cols.map(c => {
+    const s = String(c ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',');
+
+  const rows = [];
+
+  // Design sessions
+  (proj.designSessions || []).forEach(s => {
+    const hrs = fmtH(sessionMs(s));
+    const cost = (sessionMs(s)/3600000 * (settings.laborRate||0)).toFixed(2);
+    rows.push(csvRow(['Design', fmtTs(s.start), fmtTs(s.end), hrs, s.designSubtype||'', '', '', '', '', cost, s.failed?'yes':'', s.note||'']));
+  });
+
+  // FDM sessions
+  (proj.fdmSessions || []).forEach(s => {
+    const hrs = fmtH(sessionMs(s));
+    const printer = (settings.fdmPrinters||[]).find(p=>p.id===s.printerId);
+    const timeCost = (sessionMs(s)/3600000 * (settings.fdmRate||0)).toFixed(2);
+    const matCost  = s.filamentG ? ((s.filamentG/1000)*(s.filamentCostPerKg||0)).toFixed(2) : '0.00';
+    const elec     = sessionElec(s, settings.fdmPrinters||[]).toFixed(2);
+    const total    = (parseFloat(timeCost)+parseFloat(matCost)+parseFloat(elec)).toFixed(2);
+    rows.push(csvRow(['FDM', fmtTs(s.start), fmtTs(s.end), hrs, '', printer?printer.name:'', s.filamentType||'', s.filamentG||'', timeCost, total, s.failed?'yes':'', s.note||'']));
+  });
+
+  // Resin sessions
+  (proj.resinSessions || []).forEach(s => {
+    const hrs = fmtH(sessionMs(s));
+    const printer = (settings.resinPrinters||[]).find(p=>p.id===s.printerId);
+    const timeCost = (sessionMs(s)/3600000 * (settings.resinRate||0)).toFixed(2);
+    const matCost  = s.resinMl ? ((s.resinMl*(s.resinDensity||1)/1000)*(s.resinCostPerKg||0)).toFixed(2) : '0.00';
+    const elec     = sessionElec(s, settings.resinPrinters||[]).toFixed(2);
+    const total    = (parseFloat(timeCost)+parseFloat(matCost)+parseFloat(elec)).toFixed(2);
+    rows.push(csvRow(['Resin', fmtTs(s.start), fmtTs(s.end), hrs, '', printer?printer.name:'', s.resinType||'', s.resinMl||'', timeCost, total, s.failed?'yes':'', s.note||'']));
+  });
+
+  rows.sort((a,b) => a.split(',')[1].localeCompare(b.split(',')[1]));
+
+  const header = csvRow(['Track','Start','End','Hours','Subtype','Printer','Material','Qty','Machine Cost','Total','Failed','Note']);
+  const csv = [header, ...rows].join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `AR-TrackingLog-${safe}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── FILAMENT LIBRARY ──────────────────────────────────────────────────

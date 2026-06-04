@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** Beta v9.4 | **Server:** v1.2
+**Current version:** Beta v9.5 | **Server:** v1.2
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -339,3 +339,4 @@ git pull && docker compose restart
 | Beta v9.2 | Electricity cost tracking — $/kWh rate in Settings, per-printer wattage (inline editable), elec cost in stats bar (⚡ sub-line), FDM/Resin ODS tabs + Summary |
 | Beta v9.3 | Failed print logging — "⚠ log failed print" on FDM/Resin tracks; creates session with failed:true; red badge + left border in session log; excluded from invoices; ⚠FAILED marked in ODS |
 | Beta v9.4 | Session notes — optional note field on all session types (material modal + design edit modal); italic sub-line in session log; Note column in all ODS tabs |
+| Beta v9.5 | CSV export — flat session dump (Design + FDM + Resin) as downloadable .csv; "Tracking Log (.csv)" button in Export modal; pure frontend, no server needed |
