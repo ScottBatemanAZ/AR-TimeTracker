@@ -18,7 +18,7 @@ from datetime import datetime
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_VERSION  = "1.2"
-TRACKER_VERSION = "Beta 9.1"
+TRACKER_VERSION = "Beta 9.2"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
@@ -169,6 +169,9 @@ def generate_ods(payload):
     labor_rate = float(sett.get('laborRate', 40))
     fdm_rate   = float(sett.get('fdmRate', 5))
     resin_rate = float(sett.get('resinRate', 2))
+    elec_rate  = float(sett.get('electricityRate', 0.12))
+    fdm_printers   = {p['id']: p for p in sett.get('fdmPrinters',   [])}
+    resin_printers = {p['id']: p for p in sett.get('resinPrinters', [])}
     proj_name  = proj.get('name', 'Project')
 
     # ── helpers ───────────────────────────────────────────────────────────
@@ -192,6 +195,12 @@ def generate_ods(payload):
         ml = float(s.get('resinMl') or 0); c = float(s.get('resinCostPerKg') or 0)
         d  = float(s.get('resinDensity') or 1.10)
         return (ml * d / 1000) * c if ml > 0 and c > 0 else float(s.get('resinCost') or 0)
+
+    def elec_cost(s, printer_map):
+        pid   = s.get('printerId', '')
+        watt  = float((printer_map.get(pid) or {}).get('wattage') or 0)
+        ms    = int(s.get('end', s.get('start', 0))) - int(s.get('start', 0))
+        return ms_hrs(ms) * (watt / 1000) * elec_rate
 
     # ── cell / row / sheet builders ───────────────────────────────────────
     def sc(v, sty=''):
@@ -251,69 +260,71 @@ def generate_ods(payload):
                     key=lambda s: s.get('start', 0))
     f_rows = [
         row(sc(f'FDM Sessions — {proj_name}', B)),
-        row(sc(f'Machine Rate: ${fdm_rate:.2f}/hr')),
+        row(sc(f'Machine Rate: ${fdm_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
         blank(),
         row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Material',H),
-            sc('Grams',H), sc('$/kg',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Total',H)),
+            sc('Grams',H), sc('$/kg',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H)),
     ]
-    f_ms = 0; f_fil = 0.0; f_mach = 0.0; f_g = 0.0; f_mat_tots = {}
+    f_ms = 0; f_fil = 0.0; f_mach = 0.0; f_g = 0.0; f_elec = 0.0; f_mat_tots = {}
     for s in f_sess:
         ms   = int(s['end']) - int(s['start']); mach = ms_hrs(ms) * fdm_rate
-        fc   = fil_cost(s); g = float(s.get('filamentG') or 0)
+        fc   = fil_cost(s); ec = elec_cost(s, fdm_printers)
+        g    = float(s.get('filamentG') or 0)
         cpkg = float(s.get('filamentCostPerKg') or 0); mat = s.get('filamentType') or '—'
-        f_ms += ms; f_fil += fc; f_mach += mach; f_g += g
-        f_mat_tots.setdefault(mat, {'ms':0,'g':0.0,'fil':0.0,'mach':0.0})
+        f_ms += ms; f_fil += fc; f_mach += mach; f_g += g; f_elec += ec
+        f_mat_tots.setdefault(mat, {'ms':0,'g':0.0,'fil':0.0,'mach':0.0,'elec':0.0})
         f_mat_tots[mat]['ms'] += ms; f_mat_tots[mat]['g'] += g
-        f_mat_tots[mat]['fil'] += fc; f_mat_tots[mat]['mach'] += mach
+        f_mat_tots[mat]['fil'] += fc; f_mat_tots[mat]['mach'] += mach; f_mat_tots[mat]['elec'] += ec
         f_rows.append(row(
             sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
             sc(ms_hm(ms)), sc(mat),
             nc(g,2) if g else sc('—'), nc(cpkg,2) if cpkg else sc('—'),
-            cc(fc) if fc else sc('—'), cc(mach), cc(fc+mach)))
+            cc(fc) if fc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(fc+mach+ec)))
     f_rows += [blank(), row(sc('Subtotals by Material', B)),
                row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('Grams',H),
-                   sc('',H), sc('',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Total',H))]
+                   sc('',H), sc('',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H))]
     for mat, t in f_mat_tots.items():
         f_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['g'],2),
-                          sc(''), sc(''), cc(t['fil']), cc(t['mach']), cc(t['fil']+t['mach'])))
+                          sc(''), sc(''), cc(t['fil']), cc(t['mach']), cc(t['elec']), cc(t['fil']+t['mach']+t['elec'])))
     f_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(f_ms),B), nc(f_g,2,B),
-                      sc(''), sc(''), cc(f_fil,B), cc(f_mach,B), cc(f_fil+f_mach,B)))
-    fdm_total = f_fil + f_mach
+                      sc(''), sc(''), cc(f_fil,B), cc(f_mach,B), cc(f_elec,B), cc(f_fil+f_mach+f_elec,B)))
+    fdm_total = f_fil + f_mach + f_elec
 
     # ── RESIN tab ─────────────────────────────────────────────────────────
     r_sess = sorted([s for s in (proj.get('resinSessions') or []) if s.get('end')],
                     key=lambda s: s.get('start', 0))
     r_rows = [
         row(sc(f'Resin Sessions — {proj_name}', B)),
-        row(sc(f'Machine Rate: ${resin_rate:.2f}/hr')),
+        row(sc(f'Machine Rate: ${resin_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
         blank(),
         row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Material',H),
-            sc('mL',H), sc('$/kg',H), sc('Density',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Total',H)),
+            sc('mL',H), sc('$/kg',H), sc('Density',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H)),
     ]
-    r_ms = 0; r_mat = 0.0; r_mach = 0.0; r_ml = 0.0; r_mat_tots = {}
+    r_ms = 0; r_mat = 0.0; r_mach = 0.0; r_ml = 0.0; r_elec = 0.0; r_mat_tots = {}
     for s in r_sess:
         ms   = int(s['end']) - int(s['start']); mach = ms_hrs(ms) * resin_rate
-        rc   = res_cost(s); ml = float(s.get('resinMl') or 0)
+        rc   = res_cost(s); ec = elec_cost(s, resin_printers)
+        ml   = float(s.get('resinMl') or 0)
         cpkg = float(s.get('resinCostPerKg') or 0); dens = float(s.get('resinDensity') or 1.10)
         mat  = s.get('resinType') or '—'
-        r_ms += ms; r_mat += rc; r_mach += mach; r_ml += ml
-        r_mat_tots.setdefault(mat, {'ms':0,'ml':0.0,'mat':0.0,'mach':0.0})
+        r_ms += ms; r_mat += rc; r_mach += mach; r_ml += ml; r_elec += ec
+        r_mat_tots.setdefault(mat, {'ms':0,'ml':0.0,'mat':0.0,'mach':0.0,'elec':0.0})
         r_mat_tots[mat]['ms'] += ms; r_mat_tots[mat]['ml'] += ml
-        r_mat_tots[mat]['mat'] += rc; r_mat_tots[mat]['mach'] += mach
+        r_mat_tots[mat]['mat'] += rc; r_mat_tots[mat]['mach'] += mach; r_mat_tots[mat]['elec'] += ec
         r_rows.append(row(
             sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
             sc(ms_hm(ms)), sc(mat),
             nc(ml,2) if ml else sc('—'), nc(cpkg,2) if cpkg else sc('—'), nc(dens,2),
-            cc(rc) if rc else sc('—'), cc(mach), cc(rc+mach)))
+            cc(rc) if rc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(rc+mach+ec)))
     r_rows += [blank(), row(sc('Subtotals by Material', B)),
                row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('mL',H),
-                   sc('',H), sc('',H), sc('',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Total',H))]
+                   sc('',H), sc('',H), sc('',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H))]
     for mat, t in r_mat_tots.items():
         r_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['ml'],2),
-                          sc(''), sc(''), sc(''), cc(t['mat']), cc(t['mach']), cc(t['mat']+t['mach'])))
+                          sc(''), sc(''), sc(''), cc(t['mat']), cc(t['mach']), cc(t['elec']), cc(t['mat']+t['mach']+t['elec'])))
     r_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(r_ms),B), nc(r_ml,2,B),
-                      sc(''), sc(''), sc(''), cc(r_mat,B), cc(r_mach,B), cc(r_mat+r_mach,B)))
-    resin_total = r_mat + r_mach
+                      sc(''), sc(''), sc(''), cc(r_mat,B), cc(r_mach,B), cc(r_elec,B), cc(r_mat+r_mach+r_elec,B)))
+    resin_total = r_mat + r_mach + r_elec
 
     # ── RECEIPTS tab ──────────────────────────────────────────────────────
     receipts = proj.get('receipts') or []
@@ -343,8 +354,10 @@ def generate_ods(payload):
         row(sc('Design Labor'),         sc(f'{ms_hrs(d_ms):.2f} hrs'),          cc(design_total)),
         row(sc('FDM Machine Time'),     sc(f'{ms_hrs(f_ms):.2f} hrs'),          cc(f_mach)),
         row(sc('FDM Filament'),         sc(f'{f_g:.1f}g'),                       cc(f_fil)),
+        row(sc('FDM Electricity'),      sc(f'{elec_rate:.3f}/kWh'),              cc(f_elec)),
         row(sc('Resin Machine Time'),   sc(f'{ms_hrs(r_ms):.2f} hrs'),          cc(r_mach)),
         row(sc('Resin Material'),       sc(f'{r_ml:.1f} mL'),                    cc(r_mat)),
+        row(sc('Resin Electricity'),    sc(f'{elec_rate:.3f}/kWh'),              cc(r_elec)),
         row(sc('Receipts / Expenses'),  sc(''),                                  cc(rec_total)),
         blank(),
         row(sc('Subtotal',B),           sc(''),                                  cc(actual,B)),
@@ -379,8 +392,8 @@ def generate_ods(payload):
   <office:body><office:spreadsheet>
     {mksheet("Summary",  s_rows,  ncols=3)}
     {mksheet("Design",   d_rows,  ncols=6)}
-    {mksheet("FDM",      f_rows,  ncols=10)}
-    {mksheet("Resin",    r_rows,  ncols=11)}
+    {mksheet("FDM",      f_rows,  ncols=11)}
+    {mksheet("Resin",    r_rows,  ncols=12)}
     {mksheet("Receipts", rec_rows,ncols=2)}
   </office:spreadsheet></office:body>
 </office:document-content>'''

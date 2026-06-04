@@ -457,7 +457,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.1</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.2</span></span>
     </footer>
   </div>
 </div>
@@ -708,6 +708,11 @@
         <label class="form-label">Resin Machine ($/hr)</label>
         <input type="number" id="setResinRate" step="0.25" min="0" />
       </div>
+      <div class="form-row">
+        <label class="form-label">Electricity ($/kWh)</label>
+        <input type="number" id="setElectricityRate" step="0.01" min="0" placeholder="e.g. 0.12" />
+      </div>
+      <div></div>
     </div>
 
     <div class="settings-section">Filament Types, Costs &amp; Density</div>
@@ -748,24 +753,26 @@
     </div>
 
     <div class="settings-section">FDM Printers</div>
-    <div style="display:grid;grid-template-columns:1fr 2fr 24px;gap:8px;margin-bottom:4px;">
-      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span></span>
+    <div style="display:grid;grid-template-columns:1fr 1.5fr 62px 24px;gap:8px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span class="col-header">⚡ Watts</span><span></span>
     </div>
     <div class="type-list" id="fdmPrintersList"></div>
-    <div class="type-add-row printer-add">
+    <div class="type-add-row printer-add" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <input type="text" id="newFdmPrinterName" placeholder="e.g. Neptune 4 Max" />
       <input type="text" id="newFdmPrinterUrl"  placeholder="http://192.168.0.xx" />
+      <input type="number" id="newFdmPrinterWatts" placeholder="W" min="0" step="10" />
       <button class="type-add-btn" onclick="addFdmPrinter()">+</button>
     </div>
 
     <div class="settings-section">Resin Printers</div>
-    <div style="display:grid;grid-template-columns:1fr 2fr 24px;gap:8px;margin-bottom:4px;">
-      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span></span>
+    <div style="display:grid;grid-template-columns:1fr 1.5fr 62px 24px;gap:8px;margin-bottom:4px;">
+      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span class="col-header">⚡ Watts</span><span></span>
     </div>
     <div class="type-list" id="resinPrintersList"></div>
-    <div class="type-add-row printer-add">
+    <div class="type-add-row printer-add" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <input type="text" id="newResinPrinterName" placeholder="e.g. Mars 4 Ultra" />
       <input type="text" id="newResinPrinterUrl"  placeholder="http://192.168.0.xx" />
+      <input type="number" id="newResinPrinterWatts" placeholder="W" min="0" step="10" />
       <button class="type-add-btn" onclick="addResinPrinter()">+</button>
     </div>
 
@@ -779,8 +786,8 @@
 <script>
 // ── DEFAULTS ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  laborRate: 40, fdmRate: 5, resinRate: 2,
-  fdmPrinters:   [{id:'fdm-0', name:'Neptune 4 Plus', moonrakerUrl:'http://192.168.0.74'}],
+  laborRate: 40, fdmRate: 5, resinRate: 2, electricityRate: 0.12,
+  fdmPrinters:   [{id:'fdm-0', name:'Neptune 4 Plus', moonrakerUrl:'http://192.168.0.74', wattage:350}],
   resinPrinters: [],
   filamentTypes: [
     {name:'PLA',      costPerKg:20, densityGPerCm3:1.24},
@@ -839,9 +846,10 @@ function updateRateLabels() {
   document.getElementById('resinRateLabel').textContent  = '$'+settings.resinRate+'/hr machine';
 }
 function openSettings() {
-  document.getElementById('setLaborRate').value = settings.laborRate;
-  document.getElementById('setFdmRate').value   = settings.fdmRate;
-  document.getElementById('setResinRate').value = settings.resinRate;
+  document.getElementById('setLaborRate').value       = settings.laborRate;
+  document.getElementById('setFdmRate').value         = settings.fdmRate;
+  document.getElementById('setResinRate').value       = settings.resinRate;
+  document.getElementById('setElectricityRate').value = settings.electricityRate ?? 0.12;
   renderFilamentTypesList();
   renderResinTypesList();
   renderFdmPrintersList();
@@ -854,40 +862,50 @@ function renderFdmPrintersList() {
   const el = document.getElementById('fdmPrintersList');
   if (!settings.fdmPrinters.length) { el.innerHTML='<div class="empty-state">No FDM printers defined.</div>'; return; }
   el.innerHTML = settings.fdmPrinters.map((p,i) =>
-    `<div class="type-row printer-row">
+    `<div class="type-row printer-row" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <span class="type-row-name">${esc(p.name)}</span>
       <span class="type-row-cost" style="color:var(--muted);text-align:left;">${esc(p.moonrakerUrl)}</span>
+      <input type="number" min="0" step="10" value="${p.wattage||0}" placeholder="W"
+        style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:3px;padding:2px 4px;width:100%;"
+        oninput="settings.fdmPrinters[${i}].wattage=parseFloat(this.value)||0" />
       <button class="type-del-btn" onclick="removeFdmPrinter(${i})">✕</button>
     </div>`).join('');
 }
 function removeFdmPrinter(i) { settings.fdmPrinters.splice(i,1); renderFdmPrintersList(); }
 function addFdmPrinter() {
-  const name = document.getElementById('newFdmPrinterName').value.trim();
-  const url  = document.getElementById('newFdmPrinterUrl').value.trim();
+  const name  = document.getElementById('newFdmPrinterName').value.trim();
+  const url   = document.getElementById('newFdmPrinterUrl').value.trim();
+  const watts = parseFloat(document.getElementById('newFdmPrinterWatts').value) || 0;
   if (!name || !url) return;
-  settings.fdmPrinters.push({id:'fdm-'+Date.now(), name, moonrakerUrl:url});
+  settings.fdmPrinters.push({id:'fdm-'+Date.now(), name, moonrakerUrl:url, wattage:watts});
   document.getElementById('newFdmPrinterName').value='';
   document.getElementById('newFdmPrinterUrl').value='';
+  document.getElementById('newFdmPrinterWatts').value='';
   renderFdmPrintersList();
 }
 function renderResinPrintersList() {
   const el = document.getElementById('resinPrintersList');
   if (!settings.resinPrinters.length) { el.innerHTML='<div class="empty-state">No resin printers defined.</div>'; return; }
   el.innerHTML = settings.resinPrinters.map((p,i) =>
-    `<div class="type-row printer-row">
+    `<div class="type-row printer-row" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <span class="type-row-name">${esc(p.name)}</span>
       <span class="type-row-cost" style="color:var(--muted);text-align:left;">${esc(p.moonrakerUrl)}</span>
+      <input type="number" min="0" step="10" value="${p.wattage||0}" placeholder="W"
+        style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:3px;padding:2px 4px;width:100%;"
+        oninput="settings.resinPrinters[${i}].wattage=parseFloat(this.value)||0" />
       <button class="type-del-btn" onclick="removeResinPrinter(${i})">✕</button>
     </div>`).join('');
 }
 function removeResinPrinter(i) { settings.resinPrinters.splice(i,1); renderResinPrintersList(); }
 function addResinPrinter() {
-  const name = document.getElementById('newResinPrinterName').value.trim();
-  const url  = document.getElementById('newResinPrinterUrl').value.trim();
+  const name  = document.getElementById('newResinPrinterName').value.trim();
+  const url   = document.getElementById('newResinPrinterUrl').value.trim();
+  const watts = parseFloat(document.getElementById('newResinPrinterWatts').value) || 0;
   if (!name || !url) return;
-  settings.resinPrinters.push({id:'resin-'+Date.now(), name, moonrakerUrl:url});
+  settings.resinPrinters.push({id:'resin-'+Date.now(), name, moonrakerUrl:url, wattage:watts});
   document.getElementById('newResinPrinterName').value='';
   document.getElementById('newResinPrinterUrl').value='';
+  document.getElementById('newResinPrinterWatts').value='';
   renderResinPrintersList();
 }
 function renderFilamentTypesList() {
@@ -938,9 +956,10 @@ function addResinType() {
 }
 function saveSettingsModal() {
   const n = (id, def) => { const v=parseFloat(document.getElementById(id).value); return isNaN(v)||v<0?def:v; };
-  settings.laborRate = n('setLaborRate', DEFAULT_SETTINGS.laborRate);
-  settings.fdmRate   = n('setFdmRate',   DEFAULT_SETTINGS.fdmRate);
-  settings.resinRate = n('setResinRate', DEFAULT_SETTINGS.resinRate);
+  settings.laborRate       = n('setLaborRate',       DEFAULT_SETTINGS.laborRate);
+  settings.fdmRate         = n('setFdmRate',         DEFAULT_SETTINGS.fdmRate);
+  settings.resinRate       = n('setResinRate',       DEFAULT_SETTINGS.resinRate);
+  settings.electricityRate = n('setElectricityRate', 0.12);
   persistSettings();
   fetch('/update-printers', {
     method: 'POST',
@@ -990,17 +1009,22 @@ function calcDesign(proj) {
   const ms=(proj.designSessions||[]).reduce((sum,s)=>sum+sessionMs(s),0);
   return {hours:ms/3600000, cost:(ms/3600000)*settings.laborRate};
 }
+function sessionElec(s, printerList) {
+  const watt = (printerList.find(p=>p.id===s.printerId)||{}).wattage || 0;
+  return (sessionMs(s)/3600000) * (watt/1000) * (settings.electricityRate||0);
+}
 function calcFdm(proj) {
-  let timeMs=0, matCost=0, totalGrams=0;
+  let timeMs=0, matCost=0, totalGrams=0, elecCost=0;
   (proj.fdmSessions||[]).forEach(s=>{
     timeMs+=sessionMs(s);
+    elecCost+=sessionElec(s, settings.fdmPrinters||[]);
     if (s.filamentG>0) {
       const cpkg=s.filamentCostPerKg>0?s.filamentCostPerKg:20;
       matCost+=(s.filamentG/1000)*cpkg; totalGrams+=s.filamentG;
     }
   });
   const timeCost=(timeMs/3600000)*settings.fdmRate;
-  return {hours:timeMs/3600000, timeCost, matCost, totalGrams, total:timeCost+matCost};
+  return {hours:timeMs/3600000, timeCost, matCost, totalGrams, elecCost, total:timeCost+matCost+elecCost};
 }
 function resinMatCost(s) {
   // new mL-based calculation
@@ -1012,14 +1036,15 @@ function resinMatCost(s) {
   return s.resinCost||0;
 }
 function calcResin(proj) {
-  let timeMs=0, matCost=0, totalMl=0;
+  let timeMs=0, matCost=0, totalMl=0, elecCost=0;
   (proj.resinSessions||[]).forEach(s=>{
     timeMs+=sessionMs(s);
+    elecCost+=sessionElec(s, settings.resinPrinters||[]);
     const mc=resinMatCost(s); matCost+=mc;
     if (s.resinMl>0) totalMl+=s.resinMl;
   });
   const timeCost=(timeMs/3600000)*settings.resinRate;
-  return {hours:timeMs/3600000, timeCost, matCost, totalMl, total:timeCost+matCost};
+  return {hours:timeMs/3600000, timeCost, matCost, totalMl, elecCost, total:timeCost+matCost+elecCost};
 }
 function calcReceipts(proj) { return (proj.receipts||[]).reduce((sum,r)=>sum+r.amount,0); }
 function isClockedIn(proj,type) { const ss=proj[type+'Sessions']||[]; return ss.length>0&&!ss[ss.length-1].end; }
@@ -1040,6 +1065,7 @@ function calcRollup(parentId) {
     const d=calcDesign(c),f=calcFdm(c),r=calcResin(c);
     dh+=d.hours; dc+=d.cost; fh+=f.hours; ft+=f.total; rh+=r.hours; rt+=r.total; rec+=calcReceipts(c);
   });
+  // ft and rt already include electricity via calcFdm/calcResin
   return {designHours:dh,designCost:dc,fdmHours:fh,fdmTotal:ft,resinHours:rh,resinTotal:rt,receipts:rec,total:dc+ft+rt+rec};
 }
 
@@ -1225,16 +1251,28 @@ function renderClock(type) {
 function updateLiveStats() {
   const p=activeProject; if(!p) return;
   updateGlobalStats();
-  const dc=calcDesign(p),fc=calcFdm(p),rc=calcResin(p),exp=calcReceipts(p);
+  let dc,fc,rc,exp;
+  if(isParentProject(p)){
+    // Aggregate children
+    const roll=calcRollup(p.id);
+    dc={cost:roll.designCost, hours:roll.designHours};
+    fc={timeCost:0, matCost:0, elecCost:0, hours:roll.fdmHours, total:roll.fdmTotal, totalGrams:0};
+    getChildren(p.id).forEach(c=>{const f=calcFdm(c);fc.timeCost+=f.timeCost;fc.matCost+=f.matCost;fc.elecCost+=f.elecCost||0;fc.totalGrams+=f.totalGrams;});
+    rc={timeCost:0, matCost:0, elecCost:0, hours:roll.resinHours, total:roll.resinTotal};
+    getChildren(p.id).forEach(c=>{const r=calcResin(c);rc.timeCost+=r.timeCost;rc.matCost+=r.matCost;rc.elecCost+=r.elecCost||0;});
+    exp=roll.receipts;
+  } else {
+    dc=calcDesign(p); fc=calcFdm(p); rc=calcResin(p); exp=calcReceipts(p);
+  }
   const grand=dc.cost+fc.total+rc.total+exp;
   document.getElementById('statDesignCost').textContent=fmtMoney(dc.cost);
   document.getElementById('statDesignHrs').textContent=dc.hours.toFixed(2)+' hrs';
-  document.getElementById('statFdmTime').textContent=fmtMoney(fc.timeCost);
-  document.getElementById('statFdmHrs').textContent=fc.hours.toFixed(2)+' hrs';
+  document.getElementById('statFdmTime').textContent=fmtMoney(fc.timeCost+(fc.elecCost||0));
+  document.getElementById('statFdmHrs').textContent=fc.hours.toFixed(2)+'hrs'+(fc.elecCost>0?' · ⚡'+fmtMoney(fc.elecCost):'');
   document.getElementById('statFdmMat').textContent=fmtMoney(fc.matCost);
   document.getElementById('statFdmGrams').textContent=fc.totalGrams.toFixed(1)+'g logged';
-  document.getElementById('statResinTime').textContent=fmtMoney(rc.timeCost);
-  document.getElementById('statResinHrs').textContent=rc.hours.toFixed(2)+' hrs';
+  document.getElementById('statResinTime').textContent=fmtMoney(rc.timeCost+(rc.elecCost||0));
+  document.getElementById('statResinHrs').textContent=rc.hours.toFixed(2)+'hrs'+(rc.elecCost>0?' · ⚡'+fmtMoney(rc.elecCost):'');
   document.getElementById('statResinMat').textContent=fmtMoney(rc.matCost);
   document.getElementById('statReceiptsLine').textContent='Receipts: '+fmtMoney(exp);
   document.getElementById('statTotal').textContent=fmtMoney(grand);
