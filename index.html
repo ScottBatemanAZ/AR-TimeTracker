@@ -37,8 +37,23 @@
   .project-item:hover { background: var(--surface2); }
   .project-item.active { background: var(--surface2); border-left-color: var(--accent); }
   .project-item.has-active { border-left-color: var(--green-bright); }
+  .project-item.child-proj { padding-left: 30px; padding-top: 7px; padding-bottom: 7px; }
   .proj-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .proj-name.parent-name { display: flex; align-items: center; gap: 5px; }
   .proj-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .proj-toggle { background: none; border: none; color: var(--dim); cursor: pointer; padding: 0; font-size: 8px; flex-shrink: 0; line-height: 1; transition: transform .15s; user-select: none; }
+  .proj-toggle.open { transform: rotate(90deg); }
+  .parent-summary-view { padding: 18px 20px 0; }
+  .parent-summary-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; margin-bottom: 14px; }
+  .parent-summary-table th { color: var(--muted); text-align: left; padding: 0 10px 6px; letter-spacing: .08em; text-transform: uppercase; font-weight: 400; border-bottom: 1px solid var(--border); }
+  .parent-summary-table th:not(:first-child) { text-align: right; }
+  .parent-summary-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .parent-summary-table td:not(:first-child) { text-align: right; }
+  .parent-summary-table tbody tr { cursor: pointer; }
+  .parent-summary-table tbody tr:hover td { background: var(--surface2); }
+  .parent-summary-table .total-row td { font-weight: 600; border-top: 1px solid var(--border2); border-bottom: none; cursor: default; background: none !important; }
+  .parent-add-child { font-family: var(--mono); font-size: 10px; color: var(--muted); background: none; border: 1px dashed var(--border2); border-radius: 4px; padding: 6px 12px; cursor: pointer; width: 100%; text-align: left; margin-bottom: 16px; }
+  .parent-add-child:hover { color: var(--text); border-color: var(--border); }
   .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; flex-shrink: 0; cursor: pointer; transition: opacity .15s; }
   .status-dot:hover { opacity: .7; }
   .status-dot.active   { background: var(--green-bright); }
@@ -95,17 +110,17 @@
   .live-timer.design-timer { color: var(--accent); }
   .live-timer.fdm-timer    { color: var(--green-bright); }
   .live-timer.resin-timer  { color: var(--blue-bright); }
-  .mat-code { font-family: var(--mono); font-size: 18px; font-weight: 700; letter-spacing: .06em; line-height: 1; min-height: 18px; }
+  .mat-code { font-family: var(--mono); font-size: 18px; font-weight: 700; letter-spacing: .06em; line-height: 1; min-height: 18px; text-align: center; width: 100%; }
   .mat-code.fdm-code   { color: var(--green-bright); }
   .mat-code.resin-code { color: var(--blue-bright); }
   .clock-status { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
   .clock-status.active-design { color: var(--accent); }
   .clock-status.active-fdm   { color: var(--green-bright); }
   .clock-status.active-resin { color: var(--blue-bright); }
-  .mat-code { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .08em; line-height: 1; margin-bottom: 2px; opacity: .85; }
+  .mat-code { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .08em; line-height: 1; margin-bottom: 2px; opacity: .85; text-align: center; width: 100%; }
   .mat-code.fdm-code   { color: var(--green-bright); }
   .mat-code.resin-code { color: var(--blue-bright); }
-  .design-subtype-label { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .08em; line-height: 1; min-height: 17px; margin-bottom: 2px; opacity: .85; text-transform: uppercase; }
+  .design-subtype-label { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .08em; line-height: 1; min-height: 17px; margin-bottom: 2px; opacity: .85; text-transform: uppercase; text-align: center; width: 100%; }
   .design-subtype-label.designing     { color: var(--accent); }
   .design-subtype-label.modeling      { color: #a077dd; }
   .design-subtype-label.post-processing { color: #c4a0f0; }
@@ -310,7 +325,7 @@
 
       <div class="clock-area">
         <div class="clock-track">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:9px;flex-shrink:0;">
           <button class="punch-btn design" id="designBtn" onclick="togglePunch('design')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
@@ -329,7 +344,7 @@
           </div>
         </div>
         <div class="clock-track">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:9px;flex-shrink:0;">
           <button class="punch-btn fdm" id="fdmBtn" onclick="togglePunch('fdm')">
             <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
               <path d="M230.738,238.655H17.405v-41.352h213.333V238.655z M205.595,172.032H43.25v25.271h162.345V172.032z M17.405,197.303L43.25,17.345 M230.738,197.303L205.595,17.345 M205.595,17.345H43.25v10.721h162.345V17.345z M143.393,70.008h-36.865v50.288h36.865V70.008z M124.961,120.296v19.853 M122.497,68.543c1.582-6.545,7.382-11.334,13.607-13.901c9.622-3.968,20.484-3.671,30.754-1.982c10.27,1.689,20.307,4.696,30.636,5.978c10.328,1.281,21.297,0.693,30.381-4.387c4.268-2.387,8.122-5.889,9.853-10.462c1.731-4.574,0.908-10.297-2.802-13.483 M143.393,100.555h69.276V79.546h-69.276V100.555z M106.528,79.546H35.26v21.008h71.268V79.546z"/>
@@ -349,7 +364,7 @@
           <div class="printer-cards" id="fdmPrinterCards"></div>
         </div>
         <div class="clock-track">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:9px;flex-shrink:0;">
           <button class="punch-btn resin" id="resinBtn" onclick="togglePunch('resin')">
             <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
               <path d="M46.924,180.121h162.153v58.838H46.924V180.121z M209.076,174.169H46.924L60.822,17.041h135.746L209.076,174.169z M91.747,180.121h69.494v29.419H91.747V180.121z M78.312,72.836h98.681 M113.522,46.169h29.188v21.333h-29.188V46.169z M127.653,72.836v101.333"/>
@@ -403,6 +418,8 @@
         </div>
       </div>
 
+      <div id="parentSummaryView" class="parent-summary-view" style="display:none;"></div>
+
       <div class="panels">
         <div class="panel">
           <div class="panel-title design-title"><span>Design Sessions</span><span id="designCount" style="color:var(--dim)">0</span></div>
@@ -440,7 +457,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span id="footerVersion">v8.7</span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta v9.1</span></span>
     </footer>
   </div>
 </div>
@@ -474,6 +491,44 @@
   </div>
 </div>
 
+<!-- RESIN SOURCES MODAL -->
+<div class="modal-backdrop" id="resinSourcesModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-title" style="color:var(--blue-bright);">Resin Library — Density Sources</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:0 0 14px;">Liquid density values (g/mL) are sourced from manufacturer Safety Data Sheets (SDS) and Technical Data Sheets (TDS). These reflect the uncured resin density used in cost calculations.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      <div style="font-family:var(--mono);font-size:11px;">
+        <div style="color:var(--text);margin-bottom:3px;">Elegoo SDS</div>
+        <div style="color:var(--muted);margin-bottom:2px;">Standard · ABS-Like · Water-Washable · Water-Washable ABS-Like · 8K Water-Washable</div>
+        <a href="https://www.elegoo.com/blogs/3d-printing/elegoo-resin-sds" target="_blank" style="color:var(--blue-bright);text-decoration:none;">elegoo.com/blogs/3d-printing/elegoo-resin-sds</a>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;font-family:var(--mono);font-size:11px;">
+        <div style="color:var(--text);margin-bottom:3px;">Siraya Tech TDS</div>
+        <div style="color:var(--muted);margin-bottom:2px;">Flexible (Tenacious) · Tough · Castable/Wax (Cast) · Ceramic/Engineering (Sculpt)</div>
+        <a href="https://siraya.tech/pages/tds" target="_blank" style="color:var(--blue-bright);text-decoration:none;">siraya.tech/pages/tds</a>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;font-family:var(--mono);font-size:11px;">
+        <div style="color:var(--text);margin-bottom:3px;">Phrozen User Guide</div>
+        <div style="color:var(--muted);margin-bottom:2px;">8K / High-Detail (Aqua 8K series)</div>
+        <a href="https://phrozen3d.com/pages/document" target="_blank" style="color:var(--blue-bright);text-decoration:none;">phrozen3d.com/pages/document</a>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;font-family:var(--mono);font-size:11px;">
+        <div style="color:var(--text);margin-bottom:3px;">Anycubic MSDS</div>
+        <div style="color:var(--muted);margin-bottom:2px;">Plant-Based · High-Temp</div>
+        <a href="https://store.anycubic.com/pages/resin-user-manual" target="_blank" style="color:var(--blue-bright);text-decoration:none;">store.anycubic.com/pages/resin-user-manual</a>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;font-family:var(--mono);font-size:11px;">
+        <div style="color:var(--text);margin-bottom:3px;">Liqcreate — Density Article</div>
+        <div style="color:var(--muted);margin-bottom:2px;">Dental Model · general density reference</div>
+        <a href="https://www.liqcreate.com/supportarticles/solid-density-of-3d-printed-resin-parts-after-post-processing/" target="_blank" style="color:var(--blue-bright);text-decoration:none;">liqcreate.com — Solid density of 3D-printed resin parts</a>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('resinSourcesModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- PROJECT MODAL -->
 <div class="modal-backdrop" id="projectModal">
   <div class="modal">
@@ -481,6 +536,12 @@
     <div class="form-row">
       <label class="form-label">Project Name</label>
       <input type="text" id="modalName" placeholder="Client / project title" />
+    </div>
+    <div class="form-row" id="parentPickerRow" style="display:none;">
+      <label class="form-label">Parent Project</label>
+      <select id="modalParent" style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:5px 8px;">
+        <option value="">— standalone (top level) —</option>
+      </select>
     </div>
     <div class="form-row">
       <label class="form-label">Scope / Notes</label>
@@ -673,6 +734,12 @@
       <span class="col-header">Name</span><span class="col-header">$/kg</span><span class="col-header">g/mL</span><span></span>
     </div>
     <div class="type-list" id="resinTypesList"></div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      <select id="resinLibraryPicker" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:4px 6px;" onchange="">
+        <option value="">— add from library —</option>
+      </select>
+      <button class="type-add-btn" onclick="addFromResinLibrary()" title="Add selected resin">+</button>
+    </div>
     <div class="type-add-row resin-add">
       <input type="text" id="newResinName" placeholder="e.g. Flexible" />
       <input type="number" id="newResinCost" placeholder="$/kg" step="0.50" min="0" style="width:100%;" />
@@ -780,6 +847,7 @@ function openSettings() {
   renderFdmPrintersList();
   renderResinPrintersList();
   populateFilamentLibraryPicker();
+  populateResinLibraryPicker();
   document.getElementById('settingsModal').classList.add('open');
 }
 function renderFdmPrintersList() {
@@ -963,26 +1031,79 @@ function cycleStatus(id) {
 }
 function hasAnyActive(proj) { return isClockedIn(proj,'design')||isClockedIn(proj,'fdm')||isClockedIn(proj,'resin'); }
 
+function isParentProject(proj) { return data.projects.some(p=>p.parentId===proj.id); }
+function getChildren(parentId) { return data.projects.filter(p=>p.parentId===parentId); }
+function calcRollup(parentId) {
+  const children=getChildren(parentId);
+  let dh=0,dc=0,fh=0,ft=0,rh=0,rt=0,rec=0;
+  children.forEach(c=>{
+    const d=calcDesign(c),f=calcFdm(c),r=calcResin(c);
+    dh+=d.hours; dc+=d.cost; fh+=f.hours; ft+=f.total; rh+=r.hours; rt+=r.total; rec+=calcReceipts(c);
+  });
+  return {designHours:dh,designCost:dc,fdmHours:fh,fdmTotal:ft,resinHours:rh,resinTotal:rt,receipts:rec,total:dc+ft+rt+rec};
+}
+
+const collapsedParents=new Set();
+
 // ── SIDEBAR ───────────────────────────────────────────────────────────
 function renderSidebar() {
   updateGlobalStats();
   const list=document.getElementById('projectList');
   list.innerHTML='';
-  data.projects.forEach(p=>{
+  const topLevel=data.projects.filter(p=>!p.parentId);
+  topLevel.forEach(p=>{
+    const isPar=isParentProject(p);
     const isActive=activeProject&&activeProject.id===p.id;
     const anyActive=hasAnyActive(p);
-    const dc=calcDesign(p),fc=calcFdm(p),rc=calcResin(p);
-    const total=dc.cost+fc.total+rc.total+calcReceipts(p);
-    const div=document.createElement('div');
     const status=p.status||'active';
     const pulsing=anyActive&&status==='active';
-    div.className='project-item'+(isActive?' active':'')+(anyActive?' has-active':'');
-    div.innerHTML='<div class="proj-name"><span class="status-dot '+status+(pulsing?' pulsing':'')+'"></span>'+esc(p.name)+'</div>'+
-      '<div class="proj-meta">'+dc.hours.toFixed(1)+'h design · '+fc.hours.toFixed(1)+'h fdm · '+fmtMoney(total)+'</div>';
-    div.onclick=()=>selectProject(p.id);
-    div.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(p.id);};
-    list.appendChild(div);
+    const div=document.createElement('div');
+    if(isPar){
+      const collapsed=collapsedParents.has(p.id);
+      const roll=calcRollup(p.id);
+      div.className='project-item'+(isActive?' active':'');
+      div.innerHTML='<div class="proj-name parent-name">'+
+        '<button class="proj-toggle'+(collapsed?'':' open')+'" data-pid="'+p.id+'">&#9658;</button>'+
+        '<span class="status-dot '+status+(pulsing?' pulsing':'')+'" data-sid="'+p.id+'"></span>'+
+        esc(p.name)+'</div>'+
+        '<div class="proj-meta" style="padding-left:17px;">'+roll.designHours.toFixed(1)+'h des · '+roll.fdmHours.toFixed(1)+'h fdm · '+fmtMoney(roll.total)+'</div>';
+      div.onclick=()=>selectProject(p.id);
+      div.querySelector('.proj-toggle').onclick=e=>{e.stopPropagation();toggleParent(p.id);};
+      div.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(p.id);};
+      list.appendChild(div);
+      if(!collapsed){
+        getChildren(p.id).forEach(c=>{
+          const cActive=activeProject&&activeProject.id===c.id;
+          const cAny=hasAnyActive(c);
+          const cStatus=c.status||'active';
+          const cPulsing=cAny&&cStatus==='active';
+          const dc=calcDesign(c),fc=calcFdm(c),rc=calcResin(c);
+          const tot=dc.cost+fc.total+rc.total+calcReceipts(c);
+          const cd=document.createElement('div');
+          cd.className='project-item child-proj'+(cActive?' active':'')+(cAny?' has-active':'');
+          cd.innerHTML='<div class="proj-name"><span class="status-dot '+cStatus+(cPulsing?' pulsing':'')+'" data-sid="'+c.id+'"></span>'+esc(c.name)+'</div>'+
+            '<div class="proj-meta">'+dc.hours.toFixed(1)+'h des · '+fc.hours.toFixed(1)+'h fdm · '+fmtMoney(tot)+'</div>';
+          cd.onclick=()=>selectProject(c.id);
+          cd.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(c.id);};
+          list.appendChild(cd);
+        });
+      }
+    } else {
+      const dc=calcDesign(p),fc=calcFdm(p),rc=calcResin(p);
+      const total=dc.cost+fc.total+rc.total+calcReceipts(p);
+      div.className='project-item'+(isActive?' active':'')+(anyActive?' has-active':'');
+      div.innerHTML='<div class="proj-name"><span class="status-dot '+status+(pulsing?' pulsing':'')+'"></span>'+esc(p.name)+'</div>'+
+        '<div class="proj-meta">'+dc.hours.toFixed(1)+'h design · '+fc.hours.toFixed(1)+'h fdm · '+fmtMoney(total)+'</div>';
+      div.onclick=()=>selectProject(p.id);
+      div.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(p.id);};
+      list.appendChild(div);
+    }
   });
+}
+
+function toggleParent(id){
+  if(collapsedParents.has(id)) collapsedParents.delete(id); else collapsedParents.add(id);
+  renderSidebar();
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────
@@ -990,10 +1111,46 @@ function renderProject() {
   const p=activeProject; if(!p) return;
   document.getElementById('viewTitle').textContent=p.name;
   document.getElementById('viewScope').textContent=p.scope||'No scope defined';
-  ['design','fdm','resin'].forEach(renderClock);
-  updateLiveStats();
-  ['design','fdm','resin'].forEach(renderSessions);
-  renderReceipts();
+  const isPar=isParentProject(p);
+  document.querySelector('.clock-area').style.display=isPar?'none':'';
+  document.querySelector('.panels').style.display=isPar?'none':'';
+  document.getElementById('parentSummaryView').style.display=isPar?'':'none';
+  if(isPar){ renderParentSummary(p); updateLiveStats(); }
+  else { ['design','fdm','resin'].forEach(renderClock); updateLiveStats(); ['design','fdm','resin'].forEach(renderSessions); renderReceipts(); }
+}
+
+function renderParentSummary(p) {
+  const children=getChildren(p.id);
+  const roll=calcRollup(p.id);
+  const el=document.getElementById('parentSummaryView');
+  let rows='';
+  children.forEach(c=>{
+    const dc=calcDesign(c),fc=calcFdm(c),rc=calcResin(c);
+    const tot=dc.cost+fc.total+rc.total+calcReceipts(c);
+    const status=c.status||'active';
+    rows+=`<tr onclick="selectProject('${c.id}')">
+      <td><span class="status-dot ${status}" style="display:inline-block;margin-right:6px;"></span>${esc(c.name)}</td>
+      <td style="color:var(--accent)">${dc.hours.toFixed(1)}h</td>
+      <td style="color:var(--green-bright)">${fc.hours.toFixed(1)}h</td>
+      <td style="color:var(--blue-bright)">${rc.hours.toFixed(1)}h</td>
+      <td>${fmtMoney(tot)}</td>
+    </tr>`;
+  });
+  el.innerHTML=`
+    <table class="parent-summary-table">
+      <thead><tr>
+        <th>Sub-Project</th><th>Design</th><th>FDM</th><th>Resin</th><th>Total</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="total-row">
+        <td>Total</td>
+        <td style="color:var(--accent)">${roll.designHours.toFixed(1)}h</td>
+        <td style="color:var(--green-bright)">${roll.fdmHours.toFixed(1)}h</td>
+        <td style="color:var(--blue-bright)">${roll.resinHours.toFixed(1)}h</td>
+        <td>${fmtMoney(roll.total)}</td>
+      </tr></tfoot>
+    </table>
+    <button class="parent-add-child" onclick="openNewSubProject('${p.id}')">+ Add Sub-Project</button>`;
 }
 function toMatCode(name) {
   if (!name) return '';
@@ -1582,14 +1739,29 @@ function deleteReceipt(i){
 }
 
 // ── PROJECT CRUD ──────────────────────────────────────────────────────
+function populateParentPicker(excludeId) {
+  const sel=document.getElementById('modalParent');
+  sel.innerHTML='<option value="">— standalone (top level) —</option>';
+  data.projects.filter(p=>!p.parentId&&p.id!==excludeId).forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.id; opt.textContent=p.name; sel.appendChild(opt);
+  });
+}
 function openNewProject(){
   editingId=null;
   document.getElementById('modalTitle').textContent='New Project';
   document.getElementById('modalName').value='';
   document.getElementById('modalScope').value='';
   document.getElementById('modalSaveBtn').textContent='Create Project';
+  populateParentPicker(null);
+  document.getElementById('parentPickerRow').style.display='';
+  document.getElementById('modalParent').value='';
   document.getElementById('projectModal').classList.add('open');
   setTimeout(()=>document.getElementById('modalName').focus(),50);
+}
+function openNewSubProject(parentId){
+  openNewProject();
+  document.getElementById('modalParent').value=parentId;
 }
 function editProject(){
   if(!activeProject) return;
@@ -1598,6 +1770,7 @@ function editProject(){
   document.getElementById('modalName').value=activeProject.name;
   document.getElementById('modalScope').value=activeProject.scope||'';
   document.getElementById('modalSaveBtn').textContent='Save Changes';
+  document.getElementById('parentPickerRow').style.display='none';
   document.getElementById('projectModal').classList.add('open');
   setTimeout(()=>document.getElementById('modalName').focus(),50);
 }
@@ -1611,15 +1784,22 @@ function saveProject(){
     saveData(); closeModal('projectModal'); renderSidebar();
     if(activeProject&&activeProject.id===editingId) renderProject();
   } else {
+    const parentId=document.getElementById('modalParent').value||null;
     const proj={id:genId(),name,scope,status:'active',designSessions:[],fdmSessions:[],resinSessions:[],receipts:[],created:Date.now()};
+    if(parentId) proj.parentId=parentId;
     data.projects.push(proj);
     saveData(); closeModal('projectModal'); renderSidebar(); selectProject(proj.id);
   }
 }
 function deleteProject(){
   if(!activeProject) return;
-  if(!confirm('Delete "'+activeProject.name+'" and all its data? Cannot be undone.')) return;
-  data.projects=data.projects.filter(p=>p.id!==activeProject.id);
+  const children=getChildren(activeProject.id);
+  const msg=children.length
+    ? `Delete "${activeProject.name}" and its ${children.length} sub-project(s)? All data will be lost. Cannot be undone.`
+    : `Delete "${activeProject.name}" and all its data? Cannot be undone.`;
+  if(!confirm(msg)) return;
+  const idsToRemove=new Set([activeProject.id,...children.map(c=>c.id)]);
+  data.projects=data.projects.filter(p=>!idsToRemove.has(p.id));
   activeProject=null; clearInterval(timerInterval);
   saveData(); renderSidebar();
   document.getElementById('emptyState').style.display='flex';
@@ -1629,11 +1809,11 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal','editSessionModal'].forEach(closeModal);pendingMaterial=null;manualType=null;editingSession=null;}
+  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal','editSessionModal','resinSourcesModal'].forEach(closeModal);pendingMaterial=null;manualType=null;editingSession=null;}
   if(e.key==='Enter'&&document.getElementById('projectModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA') saveProject();
   if(e.key==='Enter'&&document.getElementById('manualModal').classList.contains('open')) saveManualTime();
 });
-['projectModal','settingsModal'].forEach(id=>
+['projectModal','settingsModal','resinSourcesModal'].forEach(id=>
   document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal(id);})
 );
 document.getElementById('receiptAmt').addEventListener('keydown',e=>{if(e.key==='Enter')addReceipt();});
@@ -1911,6 +2091,56 @@ function openFilamentInfo() {
   if (mat && mat.slug) window.open('https://filament.thenextlayer.com/?f=' + mat.slug, '_blank');
 }
 
+let resinLibrary = [];
+
+async function loadResinLibrary() {
+  try {
+    const res = await fetch('/resin-library.json');
+    const data = await res.json();
+    resinLibrary = data.materials || [];
+    // Backfill density on any saved resin types that lack it
+    let changed = false;
+    settings.resinTypes.forEach(rt => {
+      if (!rt.densityGPerMl) {
+        const match = resinLibrary.find(m => m.name.toLowerCase() === rt.name.toLowerCase());
+        if (match) { rt.densityGPerMl = match.densityGPerMl; changed = true; }
+      }
+    });
+    if (changed) persistSettings();
+    populateResinLibraryPicker();
+  } catch(e) { /* library unavailable — no problem */ }
+}
+
+function populateResinLibraryPicker() {
+  const sel = document.getElementById('resinLibraryPicker');
+  if (!sel) return;
+  const existing = new Set(settings.resinTypes.map(r => r.name.toLowerCase()));
+  sel.innerHTML = '<option value="">— add from library —</option>';
+  resinLibrary
+    .filter(m => !existing.has(m.name.toLowerCase()))
+    .forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name;
+      opt.textContent = m.name + ' — ' + m.full + '  (' + m.densityGPerMl + ' g/mL)';
+      sel.appendChild(opt);
+    });
+}
+
+function addFromResinLibrary() {
+  const sel = document.getElementById('resinLibraryPicker');
+  if (!sel || !sel.value) return;
+  const mat = resinLibrary.find(m => m.name === sel.value);
+  if (!mat) return;
+  if (settings.resinTypes.find(r => r.name.toLowerCase() === mat.name.toLowerCase())) return;
+  settings.resinTypes.push({ name: mat.name, costPerKg: mat.typicalCostPerKg, densityGPerMl: mat.densityGPerMl });
+  renderResinTypesList();
+  populateResinLibraryPicker();
+}
+
+function openResinSources() {
+  document.getElementById('resinSourcesModal').classList.add('open');
+}
+
 // ── MOONRAKER POLLING ─────────────────────────────────────────────────
 const prevPrinterStatuses  = {};  // {printerId: last known status}
 const printerUnreachCounts = {};  // {printerId: consecutive unreachable count}
@@ -2112,7 +2342,7 @@ function importBackup() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
-loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary();
+loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
 if(data.projects.length>0) selectProject(data.projects[0].id);
 </script>
 </body>

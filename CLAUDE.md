@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** v9.0 | **Server:** v1.2
+**Current version:** Beta v9.1 | **Server:** v1.2
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -335,3 +335,4 @@ git pull && docker compose restart
 | v8.7 | Editable session times — time editor in material modal (FDM/Resin) + dedicated edit modal for Design sessions |
 | v8.8 | Project status dots in sidebar — Active (green/pulses), On Hold (red), Complete (gray); click to cycle |
 | v9.0 | Multi-printer support — Settings UI, per-printer session stamping, keyed Moonraker polling, printer cards in FDM/Resin clock tracks |
+| Beta v9.1 | Nested project folders — parent projects with sub-projects; rollup summary view; resin library (12 types) with density sources card; versioning prefixed Beta |

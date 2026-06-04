@@ -1,0 +1,89 @@
+{
+  "_comment": "Resin reference library. densityGPerMl is the liquid (uncured) density used in cost calculations. Most photopolymer resins land at 1.10 g/mL regardless of brand — the formula base chemistry is similar. Outliers are plant-based (bio-monomers, slightly lighter) and ceramic/mineral-filled engineering types (much heavier). Costs are rough USD/kg market midpoints — override with your actual purchase price. Sources: Elegoo SDS, Siraya Tech TDS, Phrozen user guides, Anycubic MSDS.",
+  "materials": [
+    {
+      "name": "Standard",
+      "full": "Standard Photopolymer Resin",
+      "densityGPerMl": 1.10,
+      "tags": ["beginner", "common"],
+      "typicalCostPerKg": 22
+    },
+    {
+      "name": "ABS-Like",
+      "full": "ABS-Like Photopolymer Resin",
+      "densityGPerMl": 1.10,
+      "tags": ["common", "durable"],
+      "typicalCostPerKg": 28
+    },
+    {
+      "name": "Water-Washable",
+      "full": "Water-Washable Resin",
+      "densityGPerMl": 1.10,
+      "tags": ["common", "eco"],
+      "typicalCostPerKg": 28
+    },
+    {
+      "name": "Water-Washable ABS-Like",
+      "full": "Water-Washable ABS-Like Resin",
+      "densityGPerMl": 1.10,
+      "tags": ["common", "durable", "eco"],
+      "typicalCostPerKg": 32
+    },
+    {
+      "name": "8K / High-Detail",
+      "full": "8K High-Resolution Resin",
+      "densityGPerMl": 1.10,
+      "tags": ["detail", "precision"],
+      "typicalCostPerKg": 35
+    },
+    {
+      "name": "Flexible",
+      "full": "Flexible / Rubber-Like Resin (65D)",
+      "densityGPerMl": 1.10,
+      "tags": ["flexible", "specialty"],
+      "typicalCostPerKg": 42
+    },
+    {
+      "name": "Tough",
+      "full": "Tough / Impact-Resistant Resin",
+      "densityGPerMl": 1.10,
+      "tags": ["durable", "engineering"],
+      "typicalCostPerKg": 45
+    },
+    {
+      "name": "Plant-Based",
+      "full": "Plant-Based / Bio-Resin",
+      "densityGPerMl": 1.08,
+      "tags": ["eco", "low-odor"],
+      "typicalCostPerKg": 28
+    },
+    {
+      "name": "Castable / Wax",
+      "full": "Castable Wax Resin (Jewelry / Burnout)",
+      "densityGPerMl": 1.10,
+      "tags": ["specialty", "jewelry", "casting"],
+      "typicalCostPerKg": 65
+    },
+    {
+      "name": "High-Temp",
+      "full": "High-Temperature Engineering Resin",
+      "densityGPerMl": 1.12,
+      "tags": ["engineering", "specialty"],
+      "typicalCostPerKg": 80
+    },
+    {
+      "name": "Ceramic / Engineering",
+      "full": "Ceramic-Filled or Mineral-Filled Engineering Resin",
+      "densityGPerMl": 1.40,
+      "tags": ["engineering", "specialty", "heavy"],
+      "typicalCostPerKg": 90
+    },
+    {
+      "name": "Dental Model",
+      "full": "Dental Model / Biocompatible Resin",
+      "densityGPerMl": 1.15,
+      "tags": ["dental", "specialty", "biocompatible"],
+      "typicalCostPerKg": 110
+    }
+  ]
+}
