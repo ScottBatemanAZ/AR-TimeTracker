@@ -3,10 +3,15 @@
 **Self-hosted time & cost tracker for 3D printing and design work.**  
 Built for a one-person LLC that runs FDM printers, a resin printer, and does design/modeling work — and needs to know exactly what a job costs before writing an invoice.
 
-![Version](https://img.shields.io/badge/version-Beta_10.2.1-7f77dd?style=flat-square)
+![Version](https://img.shields.io/badge/version-Beta_10.2.2-7f77dd?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.12-blue?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![No Framework](https://img.shields.io/badge/frontend-vanilla_JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
+![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)
+
+---
+
+![AR Time Tracker — active tracking with live costs](Screenshots/Screenshot%202026-06-06%20171547.png)
 
 ---
 
@@ -86,6 +91,10 @@ If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself i
 - **Sync indicator** — sidebar shows last sync time when in file storage mode
 - **Backup** — download a dated JSON snapshot of all projects and settings
 - **Restore** — upload a backup to migrate between devices or recover data
+
+---
+
+![Settings modal showing rates, filament types, and printer configuration](Screenshots/Screenshot%202026-06-06%20171419.png)
 
 ---
 
@@ -251,6 +260,10 @@ Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densi
 | **Beta 10.0.1** | Export modal stays open; X to dismiss; Bill To cached per project |
 | **Beta 10.1.0** | Project archiving — archive/restore completed projects; sticky sidebar footer |
 | **Beta 10.2.0** | Configurable storage — first-run modal chooses localStorage vs server file; auto-sync with sync indicator; storage mode visible in Settings with Reconfigure button; Server v1.4 |
+| **Beta 10.2.1** | Sync indicator, storage section in Settings, TRACKER_VERSION const, git-not-found logging |
+| **Beta 10.2.2** | Windows EXE + ZIP releases via GitHub Actions, in-app update badge, error logging, VERIFY.md |
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ---
 

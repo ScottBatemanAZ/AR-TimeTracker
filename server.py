@@ -755,9 +755,36 @@ def shutdown(sig, frame):
 signal.signal(signal.SIGINT,  shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
-check_for_updates()
-load_config()
-load_printers_config()
+def _fatal(msg, exc=None):
+    """Write a crash report next to the exe/script and pause the console."""
+    log_path = os.path.join(DATA_DIR, 'ar-error.log')
+    lines = [
+        f"AR Time Tracker — startup error\n",
+        f"Version : {TRACKER_VERSION}\n",
+        f"Build   : {'EXE (frozen)' if IS_FROZEN else 'Python (source)'}\n",
+        f"Time    : {datetime.now().isoformat()}\n\n",
+        f"{msg}\n",
+    ]
+    if exc:
+        import traceback
+        lines.append(traceback.format_exc())
+    try:
+        with open(log_path, 'w') as f:
+            f.writelines(lines)
+        print(f"\n  Error log written to: {log_path}", flush=True)
+    except Exception:
+        pass
+    print(f"\n  FATAL: {msg}", flush=True)
+    if IS_FROZEN:
+        input("\n  Press Enter to exit...\n")
+    sys.exit(1)
+
+try:
+    check_for_updates()
+    load_config()
+    load_printers_config()
+except Exception as _e:
+    _fatal(f"Startup failed during init: {_e}", _e)
 
 all_fdm   = printers_config.get('fdm', [])
 all_resin = printers_config.get('resin', [])
@@ -783,10 +810,20 @@ if not all_fdm and not all_resin:
     print(f"  No printers configured — add them in Settings")
 print(f"  Polling every {POLL_INTERVAL}s  |  Press Ctrl+C to stop\n")
 
-socketserver.TCPServer.allow_reuse_address = True
-threading.Thread(target=poll_all_printers, daemon=True).start()
-if not os.environ.get('DOCKER'):
-    threading.Thread(target=open_browser, daemon=True).start()
+try:
+    socketserver.TCPServer.allow_reuse_address = True
+    threading.Thread(target=poll_all_printers, daemon=True).start()
+    if not os.environ.get('DOCKER'):
+        threading.Thread(target=open_browser, daemon=True).start()
 
-with socketserver.TCPServer(("", PORT), Handler) as httpd:
-    httpd.serve_forever()
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        httpd.serve_forever()
+except OSError as _e:
+    if 'address already in use' in str(_e).lower() or _e.errno == 10048:
+        _fatal(f"Port {PORT} is already in use.\n\n"
+               f"  Another instance of AR Time Tracker (or another app) is already\n"
+               f"  running on port {PORT}. Close it and try again.", _e)
+    else:
+        _fatal(f"Could not start server: {_e}", _e)
+except Exception as _e:
+    _fatal(f"Unexpected server error: {_e}", _e)
