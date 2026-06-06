@@ -18,13 +18,23 @@ import subprocess
 from datetime import datetime
 
 PORT = 5757
-DIR = os.path.dirname(os.path.abspath(__file__))
-SERVER_VERSION  = "1.4"
-TRACKER_VERSION = "Beta 10.2.0"
+SERVER_VERSION  = "1.5"
+TRACKER_VERSION = "Beta 10.2.2"
 POLL_INTERVAL   = 5  # seconds
 
-PRINTERS_FILE = os.path.join(DIR, 'printers.json')
-CONFIG_FILE   = os.path.join(DIR, 'config.json')
+# ── PATH SETUP ────────────────────────────────────────────────────────
+# PyInstaller bundles read-only assets into a temp dir (sys._MEIPASS).
+# Writable user files (config, printers, data) must live next to the exe.
+IS_FROZEN  = getattr(sys, 'frozen', False)
+STATIC_DIR = sys._MEIPASS if IS_FROZEN else os.path.dirname(os.path.abspath(__file__))
+DATA_DIR   = os.path.dirname(sys.executable) if IS_FROZEN else STATIC_DIR
+DIR        = STATIC_DIR   # kept for SimpleHTTPRequestHandler directory= arg
+
+PRINTERS_FILE = os.path.join(DATA_DIR, 'printers.json')
+CONFIG_FILE   = os.path.join(DATA_DIR, 'config.json')
+
+GITHUB_REPO   = 'ScottBatemanAZ/AR-TimeTracker'
+_latest_release = {'checked': False, 'available': False, 'version': '', 'url': ''}
 
 DEFAULT_PRINTERS = {
     'fdm':   [{'id': 'fdm-0', 'name': 'Neptune 4 Plus', 'moonrakerUrl': 'http://192.168.0.74'}],
@@ -98,9 +108,9 @@ def save_app_config(cfg):
 
 # ── FILE STORAGE ──────────────────────────────────────────────────────
 def resolve_data_path(data_path):
-    """Resolve relative paths relative to the server directory."""
+    """Resolve relative paths relative to the data directory (writable location)."""
     if not os.path.isabs(data_path):
-        return os.path.join(DIR, data_path)
+        return os.path.join(DATA_DIR, data_path)
     return data_path
 
 def load_data_from_path(data_path):
@@ -620,6 +630,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if self.path == '/release-info':
+            body = json.dumps(_latest_release).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/printer-status":
             with states_lock:
                 payload = json.dumps(printer_states).encode()
@@ -657,37 +677,72 @@ def get_lan_ip():
     except Exception:
         return None
 
+def _version_tuple(v):
+    """Parse version string like 'Beta 10.2.1' or 'v10.2.1' into a comparable tuple."""
+    nums = re.findall(r'\d+', v)
+    return tuple(int(x) for x in nums) if nums else (0,)
+
+def check_latest_release():
+    """Check GitHub releases API for a newer version. Runs in a background thread."""
+    global _latest_release
+    try:
+        url = f'https://api.github.com/repos/{GITHUB_REPO}/releases/latest'
+        req = urllib.request.Request(url, headers={'User-Agent': f'AR-TimeTracker/{TRACKER_VERSION}'})
+        resp = urllib.request.urlopen(req, timeout=8)
+        data = json.loads(resp.read().decode())
+        tag  = data.get('tag_name', '').lstrip('v')
+        html = data.get('html_url', f'https://github.com/{GITHUB_REPO}/releases/latest')
+        if tag and _version_tuple(tag) > _version_tuple(TRACKER_VERSION):
+            _latest_release = {'checked': True, 'available': True,
+                               'version': tag, 'url': html}
+            print(f"  ⬆  Update available: v{tag}  →  {html}", flush=True)
+        else:
+            _latest_release = {'checked': True, 'available': False,
+                               'version': tag, 'url': html}
+            if tag:
+                print(f"  Up to date (latest release: v{tag})", flush=True)
+    except Exception as e:
+        _latest_release = {'checked': True, 'available': False, 'version': '', 'url': ''}
+        print(f"  Release check skipped: {e}", flush=True)
+
 def check_for_updates():
-    """Fetch from git remote; if behind, pull and re-exec with updated code."""
+    """Git-based auto-update: fetch → pull → re-exec. Skipped in frozen/EXE mode."""
+    if IS_FROZEN:
+        # EXE build — no git, no source to pull. Use check_latest_release() instead.
+        threading.Thread(target=check_latest_release, daemon=True).start()
+        return
     try:
         # Confirm we're inside a git repo
         subprocess.run(
             ['git', 'rev-parse', '--git-dir'],
-            cwd=DIR, capture_output=True, check=True, timeout=5
+            cwd=DATA_DIR, capture_output=True, check=True, timeout=5
         )
         print("  Checking for updates...", flush=True)
         fetch = subprocess.run(
             ['git', 'fetch', 'origin'],
-            cwd=DIR, capture_output=True, timeout=20
+            cwd=DATA_DIR, capture_output=True, timeout=20
         )
         if fetch.returncode != 0:
             print("  Could not reach remote — skipping update check", flush=True)
+            threading.Thread(target=check_latest_release, daemon=True).start()
             return
         local  = subprocess.run(['git', 'rev-parse', 'HEAD'],
-                                cwd=DIR, capture_output=True, text=True, timeout=5)
+                                cwd=DATA_DIR, capture_output=True, text=True, timeout=5)
         remote = subprocess.run(['git', 'rev-parse', '@{u}'],
-                                cwd=DIR, capture_output=True, text=True, timeout=5)
+                                cwd=DATA_DIR, capture_output=True, text=True, timeout=5)
         if local.stdout.strip() == remote.stdout.strip():
             print("  Up to date", flush=True)
             return
         print("  New version found — pulling updates...", flush=True)
-        subprocess.run(['git', 'pull'], cwd=DIR, check=True, timeout=30)
+        subprocess.run(['git', 'pull'], cwd=DATA_DIR, check=True, timeout=30)
         print("  Restarting with updated code...\n", flush=True)
         os.execv(sys.executable, [sys.executable] + sys.argv)
     except FileNotFoundError:
-        print("  git not found — skipping update check", flush=True)
+        print("  git not found — skipping auto-update", flush=True)
+        threading.Thread(target=check_latest_release, daemon=True).start()
     except Exception as e:
         print(f"  Update check skipped: {e}", flush=True)
+        threading.Thread(target=check_latest_release, daemon=True).start()
 
 def open_browser():
     time.sleep(0.6)
@@ -707,8 +762,9 @@ load_printers_config()
 all_fdm   = printers_config.get('fdm', [])
 all_resin = printers_config.get('resin', [])
 lan_ip    = get_lan_ip()
+build_type = 'EXE (standalone)' if IS_FROZEN else 'Python (source)'
 print(f"\n  Azazel's Razer Time Tracker")
-print(f"  Server v{SERVER_VERSION} running AR Tracker v{TRACKER_VERSION}")
+print(f"  Server v{SERVER_VERSION} running AR Tracker v{TRACKER_VERSION}  [{build_type}]")
 print(f"  Local  →  http://localhost:{PORT}")
 if lan_ip:
     print(f"  LAN    →  http://{lan_ip}:{PORT}")

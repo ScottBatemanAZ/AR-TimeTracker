@@ -1,0 +1,140 @@
+name: Build & Release
+
+# Triggers when you push a version tag: git tag v10.3.0 && git push origin v10.3.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ── JOB 1: Build ZIP (Linux runner — fast) ──────────────────────────
+  build-zip:
+    name: Build ZIP archive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build distributable ZIP
+        run: |
+          VERSION="${{ github.ref_name }}"
+          ZIP="AR-TimeTracker-${VERSION}.zip"
+          zip "$ZIP" \
+            index.html \
+            server.py \
+            filament-library.json \
+            resin-library.json \
+            ARLogo-FullTrans.png \
+            ARSymbol.png \
+            ARSymbol.ico \
+            icon-design.svg \
+            icon-fdm.svg \
+            icon-resin.svg \
+            launch.bat \
+            docker-compose.yml \
+            Dockerfile \
+            .dockerignore \
+            README.md \
+            VERIFY.md
+          echo "ZIP_NAME=$ZIP" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zip-artifact
+          path: AR-TimeTracker-${{ github.ref_name }}.zip
+
+  # ── JOB 2: Build EXE (Windows runner — required for PyInstaller) ────
+  build-exe:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build EXE
+        run: pyinstaller AR-TimeTracker.spec
+
+      - name: Rename EXE with version
+        run: |
+          $version = "${{ github.ref_name }}"
+          Copy-Item "dist\AR-TimeTracker.exe" "AR-TimeTracker-$version.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe-artifact
+          path: AR-TimeTracker-${{ github.ref_name }}.exe
+
+  # ── JOB 3: Create GitHub Release with checksums ─────────────────────
+  release:
+    name: Publish release
+    needs: [build-zip, build-exe]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: zip-artifact
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: exe-artifact
+
+      - name: Generate SHA-256 checksums
+        run: |
+          VERSION="${{ github.ref_name }}"
+          sha256sum "AR-TimeTracker-${VERSION}.zip" \
+                    "AR-TimeTracker-${VERSION}.exe" \
+            > checksums-${VERSION}.txt
+          echo ""
+          echo "=== Checksums ==="
+          cat checksums-${VERSION}.txt
+
+      - name: Read changelog excerpt from CLAUDE.md
+        id: changelog
+        run: |
+          # Grab the latest version line from the version history table
+          LINE=$(grep -m1 "| Beta\|^\| v" CLAUDE.md | head -1 || echo "")
+          echo "line=$LINE" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "AR Time Tracker ${{ github.ref_name }}"
+          generate_release_notes: false
+          body: |
+            ## AR Time Tracker ${{ github.ref_name }}
+
+            ### Download
+
+            | Option | File | Requirements |
+            |--------|------|--------------|
+            | 🪟 **Windows EXE** | `AR-TimeTracker-${{ github.ref_name }}.exe` | Nothing — double-click and run |
+            | 📦 **ZIP (Python)** | `AR-TimeTracker-${{ github.ref_name }}.zip` | [Python 3.10+](https://python.org/downloads) installed |
+            | 🐳 **Docker** | See [README](README.md) | Docker Desktop |
+            | 🛠 **Developer** | `git clone` | Python + Git |
+
+            ### First time?
+            - **EXE**: Download → double-click. Windows may show a SmartScreen warning — see [VERIFY.md](VERIFY.md) for why this happens and how to confirm the file is safe.
+            - **ZIP**: Download → extract → double-click `launch.bat`. Python must be installed first.
+
+            ### ⚠️ Windows SmartScreen
+            The EXE is not yet code-signed (certificate costs ~$500/yr). Windows will warn you the first time.
+            **To verify this is safe:** check `checksums-${{ github.ref_name }}.txt` against the file you downloaded, or [view the full source code](https://github.com/ScottBatemanAZ/AR-TimeTracker).
+
+            ### SHA-256 Checksums
+            See `checksums-${{ github.ref_name }}.txt` attached below.
+            You can also run: `certutil -hashfile AR-TimeTracker-${{ github.ref_name }}.exe SHA256`
+
+          files: |
+            AR-TimeTracker-${{ github.ref_name }}.zip
+            AR-TimeTracker-${{ github.ref_name }}.exe
+            checksums-${{ github.ref_name }}.txt

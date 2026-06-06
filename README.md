@@ -3,10 +3,23 @@
 **Self-hosted time & cost tracker for 3D printing and design work.**  
 Built for a one-person LLC that runs FDM printers, a resin printer, and does design/modeling work — and needs to know exactly what a job costs before writing an invoice.
 
-![Version](https://img.shields.io/badge/version-Beta_10.2.0-7f77dd?style=flat-square)
+![Version](https://img.shields.io/badge/version-Beta_10.2.1-7f77dd?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.12-blue?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![No Framework](https://img.shields.io/badge/frontend-vanilla_JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
+
+---
+
+## Download
+
+| Option | Best for | Requirements |
+|--------|----------|--------------|
+| 🪟 **[Windows EXE](https://github.com/ScottBatemanAZ/AR-TimeTracker/releases/latest)** | Simplest — just double-click | Nothing |
+| 📦 **[ZIP archive](https://github.com/ScottBatemanAZ/AR-TimeTracker/releases/latest)** | Already have Python installed | Python 3.10+ |
+| 🐳 **Docker** | Server / NAS / always-on | Docker Desktop |
+| 🛠 **git clone** | Developers | Python + Git |
+
+> **Windows EXE note:** Windows may show a SmartScreen warning because the EXE is not yet code-signed. See [VERIFY.md](VERIFY.md) for why this happens and how to confirm the file is safe before running it.
 
 ---
 
@@ -91,7 +104,23 @@ No npm. No webpack. No React. No database. The entire frontend is a single `inde
 
 ## Quick Start
 
-### Local (Python)
+### Windows EXE (no install required)
+
+1. Download `AR-TimeTracker-vX.X.X.exe` from the [latest release](https://github.com/ScottBatemanAZ/AR-TimeTracker/releases/latest)
+2. Double-click it — a console window opens and your browser launches automatically
+3. If Windows SmartScreen warns you, click **More info → Run anyway** ([why?](VERIFY.md))
+
+Data and config files are written to the same folder as the EXE.
+
+### ZIP (Python required)
+
+1. Download `AR-TimeTracker-vX.X.X.zip` from the [latest release](https://github.com/ScottBatemanAZ/AR-TimeTracker/releases/latest)
+2. Extract the ZIP anywhere
+3. Double-click `launch.bat` — it checks for Python and opens your browser automatically
+
+If Python isn't installed, `launch.bat` will tell you where to download it.
+
+### Git clone (developer / auto-update)
 
 ```bash
 git clone https://github.com/ScottBatemanAZ/AR-TimeTracker.git
@@ -100,7 +129,8 @@ python server.py
 ```
 
 Opens at **http://localhost:5757** automatically. Also accessible on your LAN at the IP shown in the startup log.  
-Hard refresh (`Ctrl+Shift+R`) picks up any HTML/JS/CSS changes instantly.
+Hard refresh (`Ctrl+Shift+R`) picks up any HTML/JS/CSS changes instantly.  
+The server auto-pulls updates from git on every startup.
 
 ### Docker
 
@@ -230,6 +260,35 @@ Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densi
 |---|---|
 | Configurable branding (logo, colors, company name) for self-hosters | Planned |
 | Proton Drive integration | Waiting on public API |
+
+---
+
+## Building from Source (EXE)
+
+If you prefer not to trust a pre-built binary, build the EXE yourself:
+
+```bash
+pip install pyinstaller
+pyinstaller AR-TimeTracker.spec
+# Output: dist/AR-TimeTracker.exe
+```
+
+The result is functionally identical to the release EXE — same source, same spec.
+
+## Releasing a New Version
+
+Push a version tag to trigger the automated GitHub Actions build:
+
+```powershell
+git tag v10.3.0
+git push origin v10.3.0
+```
+
+GitHub Actions will:
+1. Build a distributable ZIP (Linux runner)
+2. Build a Windows EXE via PyInstaller (Windows runner)
+3. Generate SHA-256 checksums for both
+4. Publish a GitHub Release with all three files attached
 
 ---
 

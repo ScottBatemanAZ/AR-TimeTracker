@@ -489,7 +489,11 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta 10.2.1</span></span>
+      <span>
+        <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.2.2</span>
+        <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
+      </span>
     </footer>
   </div>
 </div>
@@ -2734,7 +2738,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.2.1';
+const TRACKER_VERSION = 'Beta 10.2.2';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';
@@ -2826,6 +2830,22 @@ async function confirmFirstRun() {
 
   loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
   if (data.projects.length > 0) selectProject(data.projects[0].id);
+
+  // Check for a newer release (server polls GitHub API on startup; result ready ~5s later)
+  setTimeout(async () => {
+    try {
+      const r = await fetch('/release-info', { cache: 'no-store' });
+      if (!r.ok) return;
+      const info = await r.json();
+      if (info.available && info.url) {
+        const badge = document.getElementById('updateBadge');
+        badge.href = info.url;
+        badge.title = `v${info.version} is available — click to download`;
+        badge.textContent = `⬆ v${info.version} available`;
+        badge.style.display = 'inline';
+      }
+    } catch {}
+  }, 6000);
 })();
 </script>
 </body>
