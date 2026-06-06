@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** Beta 10.2.0 | **Server:** v1.4
+**Current version:** Beta 10.2.1 | **Server:** v1.4
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -347,3 +347,4 @@ git pull && docker compose restart
 | Beta 10.0.1 | Export modal persistent — stays open after each export; X close button (top-right) to dismiss when done; Cancel closes without exporting; Bill To cached per project in memory |
 | Beta 10.1.0 | Project archiving — complete projects show orange ✓ in sidebar; clicking archives with paid flag; archive panel (box icon, muted orange, next to ⚙) lists archived projects with ✓✓ in green; Restore button to unarchive; sticky sidebar footer (Backup/Restore) and app footer always visible via height:100vh shell layout |
 | Beta 10.2.0 | Configurable storage — first-run modal on new installs chooses localStorage vs server file storage; server writes ar-data-live.json (1s debounced auto-sync on every saveData/persistSettings); Restore also syncs to server; .gitignore added (config.json, Logs/); Server v1.4 |
+| Beta 10.2.1 | QoL polish — sync indicator in sidebar footer (file mode only); Storage section in Settings shows current mode + Reconfigure button reopens first-run modal; stale version string in syncToServer/confirmFirstRun fixed (TRACKER_VERSION const); git-not-found in server.py now prints instead of silently passing; README updated to current feature set |

@@ -3,11 +3,10 @@
 **Self-hosted time & cost tracker for 3D printing and design work.**  
 Built for a one-person LLC that runs FDM printers, a resin printer, and does design/modeling work — and needs to know exactly what a job costs before writing an invoice.
 
-![Version](https://img.shields.io/badge/version-v9.0-7f77dd?style=flat-square)
+![Version](https://img.shields.io/badge/version-Beta_10.2.0-7f77dd?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.12-blue?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![No Framework](https://img.shields.io/badge/frontend-vanilla_JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
-![No Database](https://img.shields.io/badge/storage-localStorage-orange?style=flat-square)
 
 ---
 
@@ -27,12 +26,16 @@ If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself i
 - **Manual time entry** — log time after the fact for any track
 - **Editable session times** — fix start/end timestamps on any completed session
 - **Design subtypes** — tag sessions as Designing, Modeling / CAD, or Post-Processing; switch mid-session
+- **Session notes** — optional note on any session, shown in the log and exported to ODS
+- **Failed print logging** — mark prints as failed; excluded from invoices, flagged in ODS export
 
 ### Cost Calculation
 - Configurable hourly rates for Design, FDM machine time, and Resin machine time
+- Electricity cost tracking — $/kWh rate + per-printer wattage
 - FDM filament cost: grams used × $/kg, with a material library of 50+ filaments (densities included)
 - Resin material cost: mL × density × $/kg
 - Receipts / expense log per project
+- Live running cost badge in the topbar while clocked in
 - Live running totals update every second while clocked in
 
 ### Moonraker Integration
@@ -42,24 +45,34 @@ If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself i
 - Reads filament type from G-code metadata; falls back to filename parsing for OrcaSlicer files
 - Online/printing/offline status dot in the UI
 - **Multi-printer support** — configure multiple FDM or Resin printers, each polling independently with their own status cards
+- Time estimate capture from Moonraker `estimated_time` metadata
 
 ### Projects
 - Unlimited projects, switch instantly from the sidebar
+- **Nested projects** — parent projects with sub-projects; rollup summary view
 - **Status tags** — Active (green, pulses when running), On Hold (red), Complete (gray); click to cycle
-- **Global stats bar** — aggregate hours and total billed across every project, always visible
+- **Project archiving** — archive completed/paid projects; restore any time
+- **Client field** — optional client name per project, auto-fills invoice Bill To
+- **Global stats bar** — aggregate hours and total billed across all active projects, always visible
+- **Sidebar search** — live filter projects by name
+- **Keyboard shortcuts** — Space (punch in/out Design), N (new project), E (export), ? (help)
 
 ### Export
 - **Invoice — Actual** — clean HTML invoice, opens in a new tab, ready to print or save as PDF
 - **Invoice — + Markup** — same invoice with a configurable markup percentage (default 3%)
 - **Tracking Log (.ods)** — full session export with 5 tabs: Summary, Design, FDM, Resin, Receipts  
-  *(works in LibreOffice Calc; Proton Sheets support pending their maturity)*
+  *(works in LibreOffice Calc)*
+- **Tracking Log (.csv)** — flat session dump, no server required
 - **Reduced rate** option ($30/hr Design labor) for invoice exports
+- Export modal stays open after each export for easy multi-format downloads
 
-### Data & Settings
-- All data lives in `localStorage` — nothing leaves your machine
+### Data & Storage
+- **First-run storage choice** — pick Browser (localStorage) or File (server JSON) on first launch
+- **Browser storage** — all data lives in `localStorage`; no setup needed
+- **File storage** — data saved as `ar-data-live.json` on the server; survives browser clears, accessible from any browser on the network; auto-syncs on every save (1s debounce)
+- **Sync indicator** — sidebar shows last sync time when in file storage mode
 - **Backup** — download a dated JSON snapshot of all projects and settings
 - **Restore** — upload a backup to migrate between devices or recover data
-- Material library: 50+ filaments with density and cost data, linkable to [thenextlayer.com](https://filament.thenextlayer.com) profiles
 
 ---
 
@@ -69,7 +82,7 @@ If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself i
 |---|---|---|
 | Frontend | Vanilla HTML + CSS + JS | No build step, no dependencies, hard refresh = deploy |
 | Server | Python 3 stdlib (`http.server`) | Zero dependencies, runs anywhere Python runs |
-| Storage | Browser `localStorage` | No database setup, no migrations, no data loss on restart |
+| Storage | Browser `localStorage` or server JSON file | Your choice on first run |
 | Containerization | Docker + Docker Compose | One command to run anywhere |
 
 No npm. No webpack. No React. No database. The entire frontend is a single `index.html`.
@@ -86,7 +99,7 @@ cd AR-TimeTracker
 python server.py
 ```
 
-Opens at **http://localhost:5757** automatically.  
+Opens at **http://localhost:5757** automatically. Also accessible on your LAN at the IP shown in the startup log.  
 Hard refresh (`Ctrl+Shift+R`) picks up any HTML/JS/CSS changes instantly.
 
 ### Docker
@@ -97,14 +110,17 @@ cd AR-TimeTracker
 docker compose up -d
 ```
 
-Opens at **http://localhost:5757**.
+Opens at **http://localhost:5757** (and your LAN IP on port 5757).
 
 **To deploy updates:**
-```bash
-git pull && docker compose restart
+```powershell
+git pull
+docker compose restart
 ```
 
 > The container mounts the source directory as a volume — HTML/CSS/JS changes are live on hard refresh. Python (`server.py`) changes require a restart.
+
+**Auto-update:** The server checks for new commits from the remote on every startup. If behind, it pulls and re-launches itself automatically.
 
 ---
 
@@ -114,12 +130,11 @@ git pull && docker compose restart
 
 Open **⚙ Settings** in the sidebar to configure:
 
-- **Hourly rates** — Design labor, FDM machine time, Resin machine time
+- **Hourly rates** — Design labor, FDM machine time, Resin machine time, electricity $/kWh
 - **Filament types** — name, $/kg, density (g/cm³); add from the built-in library or enter custom
 - **Resin types** — name, $/kg, density (g/mL)
-- **Printers** — name and Moonraker URL for each FDM or Resin printer
-
-Changes persist in `localStorage` and sync to `printers.json` on the server for polling.
+- **Printers** — name, Moonraker URL, and wattage for each FDM or Resin printer
+- **Storage mode** — shown at the bottom of Settings; click "Reconfigure…" to switch modes
 
 ### Moonraker / Multi-Printer
 
@@ -129,9 +144,19 @@ Add your printer(s) in Settings → **FDM Printers**:
 |---|---|
 | Name | Neptune 4 Plus |
 | Moonraker URL | http://192.168.0.74 |
+| Watts | 350 |
 
 With one printer configured, the tracker behaves exactly as described — single punch button, automatic sessions.  
 With two or more, each printer gets its own compact status card below the main clock, with independent tracking and status dots.
+
+### File Storage (Docker / LAN)
+
+On first launch, a setup modal asks whether to use browser localStorage or server file storage.
+
+- **Browser** — works immediately, no path needed. Use Backup/Restore to move data between machines.
+- **File** — enter a directory path on the server (e.g. `/app/backups` in Docker). Data is written to `ar-data-live.json` in that directory and loaded on every page open. The sidebar shows a "synced HH:MM" indicator whenever a save completes.
+
+To switch storage mode later: ⚙ Settings → Storage → **Reconfigure…**
 
 ---
 
@@ -142,8 +167,10 @@ With two or more, each printer gets its own compact status card below the main c
 | Design | `hours × laborRate` |
 | FDM machine | `hours × fdmRate` |
 | FDM filament | `(grams / 1000) × filamentCostPerKg` |
+| FDM electricity | `hours × (watts / 1000) × electricityRate` |
 | Resin machine | `hours × resinRate` |
 | Resin material | `(mL × densityGPerMl / 1000) × resinCostPerKg` |
+| Resin electricity | `hours × (watts / 1000) × electricityRate` |
 | Receipts | flat dollar sum |
 
 Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densityGPerCm³`  
@@ -182,6 +209,18 @@ Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densi
 | **v8.7** | Editable session times — time editor in material modal + dedicated Design session editor |
 | **v8.8** | Project status dots — Active / On Hold / Complete, click to cycle |
 | **v9.0** | Multi-printer support — per-printer settings, independent Moonraker polling, printer cards UI |
+| **Beta v9.1** | Nested project folders; resin library (12 types) with density sources |
+| **Beta v9.2** | Electricity cost tracking — $/kWh rate, per-printer wattage, ⚡ cost in stats + ODS |
+| **Beta v9.3** | Failed print logging — ⚠ badge, excluded from invoices, flagged in ODS |
+| **Beta v9.4** | Session notes — optional note on all session types, shown in log and ODS |
+| **Beta v9.5** | CSV export — flat session dump, no server required |
+| **Beta v9.6** | Client field on projects — auto-fills invoice Bill To |
+| **Beta v9.7** | Time estimates — FDM from Moonraker, Design per-project; Est vs Actual in summary |
+| **Beta v9.8** | Failed print costs in ODS Summary tab |
+| **Beta 10.0.0** | Sidebar search, keyboard shortcuts, running cost badge in topbar |
+| **Beta 10.0.1** | Export modal stays open; X to dismiss; Bill To cached per project |
+| **Beta 10.1.0** | Project archiving — archive/restore completed projects; sticky sidebar footer |
+| **Beta 10.2.0** | Configurable storage — first-run modal chooses localStorage vs server file; auto-sync with sync indicator; storage mode visible in Settings with Reconfigure button; Server v1.4 |
 
 ---
 
@@ -196,7 +235,7 @@ Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densi
 
 ## Built With
 
-Made with [Claude Code](https://claude.ai/claude-code) by Anthropic — the entire codebase was written collaboratively in Claude Code sessions, from the first line to v9.0.
+Made with [Claude Code](https://claude.ai/claude-code) by Anthropic — the entire codebase was written collaboratively in Claude Code sessions, from the first line to Beta 10.2.0.
 
 ---
 

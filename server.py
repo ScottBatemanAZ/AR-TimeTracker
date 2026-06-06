@@ -685,7 +685,7 @@ def check_for_updates():
         print("  Restarting with updated code...\n", flush=True)
         os.execv(sys.executable, [sys.executable] + sys.argv)
     except FileNotFoundError:
-        pass  # git not installed — skip silently
+        print("  git not found — skipping update check", flush=True)
     except Exception as e:
         print(f"  Update check skipped: {e}", flush=True)
 

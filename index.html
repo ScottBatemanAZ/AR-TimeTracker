@@ -65,8 +65,11 @@
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
   .proj-name { display: flex; align-items: center; }
   .proj-name-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-  .complete-mark { font-size: 13px; color: #c87030; cursor: pointer; flex-shrink: 0; padding: 1px 3px; line-height: 1; transition: color .15s; margin-left: 2px; user-select: none; border-radius: 2px; }
-  .complete-mark:hover { color: var(--green-bright); }
+  .complete-mark { font-size: 13px; cursor: pointer; flex-shrink: 0; padding: 1px 3px; line-height: 1; transition: color .15s; margin-left: 2px; user-select: none; border-radius: 2px; }
+  .complete-mark.not-complete { color: var(--border2); }
+  .complete-mark.not-complete:hover { color: #c87030; }
+  .complete-mark.is-complete { color: #c87030; }
+  .complete-mark.is-complete:hover { color: var(--green-bright); }
 
   .main { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
   .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-shrink: 0; }
@@ -301,6 +304,7 @@
       <button class="data-btn" onclick="exportBackup()" title="Download all projects + settings as a JSON backup">⬇ Backup</button>
       <button class="data-btn restore" onclick="importBackup()" title="Restore from a JSON backup file">⬆ Restore</button>
     </div>
+    <div id="syncStatusBar" style="display:none;padding:4px 14px 6px;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.05em;flex-shrink:0;">📁 synced <span id="syncStatusTime">—</span></div>
   </aside>
 
   <div class="main">
@@ -485,7 +489,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta 10.2.0</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta 10.2.1</span></span>
     </footer>
   </div>
 </div>
@@ -891,6 +895,12 @@
       <button class="type-add-btn" onclick="addResinPrinter()">+</button>
     </div>
 
+    <div class="settings-section">Storage</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px;font-family:var(--mono);font-size:10.5px;">
+      <span style="color:var(--muted);">Mode: <span id="settingsStorageMode" style="color:var(--text);"></span></span>
+      <button onclick="reconfigureStorage()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border2);color:var(--dim);border-radius:3px;padding:3px 9px;cursor:pointer;letter-spacing:.05em;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--dim)'">Reconfigure…</button>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
       <button class="btn-create" onclick="saveSettingsModal()">Save Settings</button>
@@ -976,7 +986,18 @@ function openSettings() {
   renderResinPrintersList();
   populateFilamentLibraryPicker();
   populateResinLibraryPicker();
+  const modeLabel = storageMode === 'file' ? '📁 File (server)' : '🌐 Browser (localStorage)';
+  document.getElementById('settingsStorageMode').textContent = modeLabel;
   document.getElementById('settingsModal').classList.add('open');
+}
+function reconfigureStorage() {
+  closeModal('settingsModal');
+  // Reset first-run modal to current selection so it re-opens cleanly
+  _frChoice = storageMode;
+  document.getElementById('frOptLocal').classList.toggle('fr-active', storageMode === 'local');
+  document.getElementById('frOptFile').classList.toggle('fr-active', storageMode === 'file');
+  document.getElementById('frPathRow').style.display = storageMode === 'file' ? 'block' : 'none';
+  document.getElementById('firstRunModal').classList.add('open');
 }
 function renderFdmPrintersList() {
   const el = document.getElementById('fdmPrintersList');
@@ -1178,6 +1199,11 @@ function cycleStatus(id) {
   p.status=order[(order.indexOf(p.status||'active')+1)%order.length];
   saveData(); renderSidebar();
 }
+function setComplete(id) {
+  const p=data.projects.find(x=>x.id===id); if(!p) return;
+  p.status='complete';
+  saveData(); renderSidebar();
+}
 function archiveProject(id) {
   const p=data.projects.find(x=>x.id===id); if(!p) return;
   p.archived=true; p.paid=true; p.archivedAt=Date.now();
@@ -1251,7 +1277,7 @@ function renderSidebar() {
     const anyActive=hasAnyActive(p);
     const status=p.status||'active';
     const pulsing=anyActive&&status==='active';
-    const checkMark=status==='complete'?'<span class="complete-mark" title="Mark as paid &amp; archive">✓</span>':'';
+    const checkMark=status==='complete'?'<span class="complete-mark is-complete" title="Mark as paid &amp; archive">✓</span>':'<span class="complete-mark not-complete" title="Mark as complete">✓</span>';
     const div=document.createElement('div');
     if(isPar){
       const collapsed=collapsedParents.has(p.id);
@@ -1265,7 +1291,7 @@ function renderSidebar() {
       div.onclick=()=>selectProject(p.id);
       div.querySelector('.proj-toggle').onclick=e=>{e.stopPropagation();toggleParent(p.id);};
       div.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(p.id);};
-      if(status==='complete') div.querySelector('.complete-mark').onclick=e=>{e.stopPropagation();archiveProject(p.id);};
+      div.querySelector('.complete-mark').onclick=e=>{e.stopPropagation();status==='complete'?archiveProject(p.id):setComplete(p.id);};
       list.appendChild(div);
       if(!collapsed){
         getChildren(p.id).filter(c=>!c.archived&&matches(c)).forEach(c=>{
@@ -1273,7 +1299,7 @@ function renderSidebar() {
           const cAny=hasAnyActive(c);
           const cStatus=c.status||'active';
           const cPulsing=cAny&&cStatus==='active';
-          const cCheck=cStatus==='complete'?'<span class="complete-mark" title="Mark as paid &amp; archive">✓</span>':'';
+          const cCheck=cStatus==='complete'?'<span class="complete-mark is-complete" title="Mark as paid &amp; archive">✓</span>':'<span class="complete-mark not-complete" title="Mark as complete">✓</span>';
           const dc=calcDesign(c),fc=calcFdm(c),rc=calcResin(c);
           const tot=dc.cost+fc.total+rc.total+calcReceipts(c);
           const cd=document.createElement('div');
@@ -1283,7 +1309,7 @@ function renderSidebar() {
             '<div class="proj-meta">'+dc.hours.toFixed(1)+'h des · '+fc.hours.toFixed(1)+'h fdm · '+fmtMoney(tot)+'</div>';
           cd.onclick=()=>selectProject(c.id);
           cd.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(c.id);};
-          if(cStatus==='complete') cd.querySelector('.complete-mark').onclick=e=>{e.stopPropagation();archiveProject(c.id);};
+          cd.querySelector('.complete-mark').onclick=e=>{e.stopPropagation();cStatus==='complete'?archiveProject(c.id):setComplete(c.id);};
           list.appendChild(cd);
         });
       }
@@ -1296,7 +1322,7 @@ function renderSidebar() {
         '<div class="proj-meta">'+dc.hours.toFixed(1)+'h design · '+fc.hours.toFixed(1)+'h fdm · '+fmtMoney(total)+'</div>';
       div.onclick=()=>selectProject(p.id);
       div.querySelector('.status-dot').onclick=e=>{e.stopPropagation();cycleStatus(p.id);};
-      if(status==='complete') div.querySelector('.complete-mark').onclick=e=>{e.stopPropagation();archiveProject(p.id);};
+      div.querySelector('.complete-mark').onclick=e=>{e.stopPropagation();status==='complete'?archiveProject(p.id):setComplete(p.id);};
       list.appendChild(div);
     }
   });
@@ -1555,14 +1581,15 @@ function renderReceipts() {
 // ── GLOBAL STATS ─────────────────────────────────────────────────────
 function updateGlobalStats() {
   let dMs=0, fMs=0, rMs=0, grand=0;
-  data.projects.forEach(p => {
+  const active = data.projects.filter(p => !p.archived);
+  active.forEach(p => {
     const dc=calcDesign(p), fc=calcFdm(p), rc=calcResin(p), exp=calcReceipts(p);
     dMs  += dc.hours * 3600000;
     fMs  += fc.hours * 3600000;
     rMs  += rc.hours * 3600000;
     grand+= dc.cost + fc.total + rc.total + exp;
   });
-  const n = data.projects.length;
+  const n = active.length;
   document.getElementById('gStatHdr').textContent    = n === 1 ? '1 Project' : n + ' Projects';
   document.getElementById('gStatDesign').textContent = (dMs/3600000).toFixed(1) + 'h';
   document.getElementById('gStatFdm').textContent    = (fMs/3600000).toFixed(1) + 'h';
@@ -2696,6 +2723,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
+const TRACKER_VERSION = 'Beta 10.2.1';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';
@@ -2714,12 +2742,15 @@ async function syncToServer() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'ar-tracker-backup', version: '8.4',
+        type: 'ar-tracker-backup', version: TRACKER_VERSION,
         exported: new Date().toISOString(),
         data:     localStorage.getItem('ar_tracker_v1'),
         settings: localStorage.getItem('ar_tracker_settings'),
       })
     });
+    const now = new Date();
+    const t = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    document.getElementById('syncStatusTime').textContent = t;
   } catch (e) { console.warn('[AR] auto-save to server failed:', e); }
 }
 
@@ -2738,7 +2769,7 @@ async function confirmFirstRun() {
       await fetch('/save-data', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'ar-tracker-backup', version: '8.4',
+          type: 'ar-tracker-backup', version: TRACKER_VERSION,
           exported: new Date().toISOString(),
           data:     localStorage.getItem('ar_tracker_v1'),
           settings: localStorage.getItem('ar_tracker_settings'),
@@ -2770,6 +2801,7 @@ async function confirmFirstRun() {
   storageMode = cfg.storageMode || 'local';
 
   if (storageMode === 'file') {
+    document.getElementById('syncStatusBar').style.display = 'block';
     try {
       const r = await fetch('/load-data', { cache: 'no-store' });
       if (r.ok) {
