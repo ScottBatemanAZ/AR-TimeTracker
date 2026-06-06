@@ -25,7 +25,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 PORT = 5757
 SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.2.9"
+TRACKER_VERSION = "Beta 10.2.10"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -547,6 +547,16 @@ def generate_ods(payload):
 # File extensions that should never be cached (app files)
 NO_CACHE_EXTS = {'.html', '.js', '.css', '.json'}
 
+_SILENT_ERRORS = (ConnectionAbortedError, BrokenPipeError, ConnectionResetError)
+
+class QuietTCPServer(socketserver.TCPServer):
+    """TCPServer that silently drops harmless browser-closed-connection errors."""
+    def handle_error(self, request, client_address):
+        exc_type = sys.exc_info()[0]
+        if exc_type and issubclass(exc_type, _SILENT_ERRORS):
+            return
+        super().handle_error(request, client_address)
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIR, **kwargs)
@@ -798,12 +808,12 @@ def open_browser():
     # In a frozen EXE, startup takes longer than the old 0.6s fixed delay.
     for _ in range(40):
         try:
-            s = socket.create_connection(('localhost', PORT), timeout=0.5)
+            s = socket.create_connection(('127.0.0.1', PORT), timeout=0.5)
             s.close()
             break
         except OSError:
             time.sleep(0.25)
-    webbrowser.open(f"http://localhost:{PORT}")
+    webbrowser.open(f"http://127.0.0.1:{PORT}")
 
 def shutdown(sig, frame):
     print("\n  Server stopped.")
@@ -873,7 +883,7 @@ try:
     if not os.environ.get('DOCKER'):
         threading.Thread(target=open_browser, daemon=True).start()
 
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    with QuietTCPServer(("", PORT), Handler) as httpd:
         httpd.serve_forever()
 except OSError as _e:
     if 'address already in use' in str(_e).lower() or _e.errno == 10048:

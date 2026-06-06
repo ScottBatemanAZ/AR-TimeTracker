@@ -4,6 +4,10 @@ All notable changes to AR Time Tracker are documented here.
 
 ---
 
+## Beta 10.2.10
+- **Instant first load** — browser now opens to `http://127.0.0.1:5757` instead of `localhost`, bypassing the Windows IPv6-first DNS lookup that caused a multi-second delay on every cold start.
+- **Silent connection errors** — WinError 10053 / BrokenPipe / ConnectionReset tracebacks no longer flood the console; suppressed at the server level via a custom `handle_error` override.
+
 ## Beta 10.2.9
 - **Clean startup log** — ZIP/source mode no longer shows the raw `CalledProcessError` when run outside a git repo; shows "Not a git repo — skipping auto-update" instead. GitHub 404 (no release published yet) shows "No GitHub release published yet" instead of an HTTP error string.
 - **Fixed console title** — `launch.bat` title command now uses `--` instead of an em-dash, preventing garbled `ΓÇö` characters in the Windows terminal tab title.
