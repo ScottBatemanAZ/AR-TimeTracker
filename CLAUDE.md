@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** Beta 10.0.0 | **Server:** v1.2
+**Current version:** Beta 10.1.0 | **Server:** v1.2
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -344,3 +344,5 @@ git pull && docker compose restart
 | Beta v9.7 | Time estimates — Settings toggle (`showEstimates`); FDM `estimatedSecs` auto-captured from Moonraker `estimated_time` at punch-in; Design `estimatedHours` field per project; Est / Actual shown in parent summary table |
 | Beta v9.8 | ODS failed print cost lines — Summary tab shows blank row + "Failed FDM/Resin Prints -$x" below Grand Total when failed sessions exist; cost tracked, not billed |
 | Beta 10.0.0 | Sidebar search, keyboard shortcuts, running cost badge — live filter in sidebar; Space/N/E/? shortcuts; amber cost badge in topbar ticks with active timers |
+| Beta 10.0.1 | Export modal persistent — stays open after each export; X close button (top-right) to dismiss when done; Cancel closes without exporting; Bill To cached per project in memory |
+| Beta 10.1.0 | Project archiving — complete projects show orange ✓ in sidebar; clicking archives with paid flag; archive panel (box icon, muted orange, next to ⚙) lists archived projects with ✓✓ in green; Restore button to unarchive; sticky sidebar footer (Backup/Restore) and app footer always visible via height:100vh shell layout |
