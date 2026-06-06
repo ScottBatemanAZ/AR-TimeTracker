@@ -4,6 +4,10 @@ All notable changes to AR Time Tracker are documented here.
 
 ---
 
+## Beta 10.2.9
+- **Clean startup log** — ZIP/source mode no longer shows the raw `CalledProcessError` when run outside a git repo; shows "Not a git repo — skipping auto-update" instead. GitHub 404 (no release published yet) shows "No GitHub release published yet" instead of an HTTP error string.
+- **Fixed console title** — `launch.bat` title command now uses `--` instead of an em-dash, preventing garbled `ΓÇö` characters in the Windows terminal tab title.
+
 ## Beta 10.2.8
 - **Self-hosted fonts** — IBM Plex Mono and IBM Plex Sans are now bundled with the app instead of loaded from Google Fonts. Page renders instantly in all browsers (including incognito), works fully offline, and no longer leaks page-load events to Google.
 

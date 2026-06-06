@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** Beta 10.2.7 | **Server:** v1.5
+**Current version:** Beta 10.2.9 | **Server:** v1.5
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -351,3 +351,4 @@ git pull && docker compose restart
 | Beta 10.2.2 | Release packaging — GitHub Actions workflow builds ZIP + EXE on tag push; PyInstaller spec (AR-TimeTracker.spec) with frozen-mode path split (STATIC_DIR/DATA_DIR); GitHub releases API update check with in-app ⬆ badge in footer; improved launch.bat with Python detection; VERIFY.md with checksum + SmartScreen docs; Server v1.5 |
 | Beta 10.2.7 | Fast browser launch — `open_browser()` polls socket until server accepts connections (no more 15-20s blank-browser wait on EXE startup); first-run confirm button disables with "Starting…" to prevent multi-clicks; suppress `ConnectionAbortedError [WinError 10053]` console spam in ZIP mode |
 | Beta 10.2.8 | Self-hosted fonts — IBM Plex Mono (400/500/600) and IBM Plex Sans (300–500 variable) bundled in `fonts/`; eliminates render-blocking Google Fonts request; page loads instantly in incognito and offline |
+| Beta 10.2.9 | Clean startup log — `CalledProcessError` replaced with readable "Not a git repo" message; 404 from GitHub API shows "No GitHub release published yet"; `launch.bat` title uses `--` to avoid garbled em-dash in OEM console |

@@ -25,7 +25,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 PORT = 5757
 SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.2.8"
+TRACKER_VERSION = "Beta 10.2.9"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -741,6 +741,12 @@ def check_latest_release():
                                'version': tag, 'url': html}
             if tag:
                 print(f"  Up to date (latest release: v{tag})", flush=True)
+    except urllib.error.HTTPError as e:
+        _latest_release = {'checked': True, 'available': False, 'version': '', 'url': ''}
+        if e.code == 404:
+            print("  No GitHub release published yet", flush=True)
+        else:
+            print(f"  Release check skipped: HTTP {e.code}", flush=True)
     except Exception as e:
         _latest_release = {'checked': True, 'available': False, 'version': '', 'url': ''}
         print(f"  Release check skipped: {e}", flush=True)
@@ -779,6 +785,9 @@ def check_for_updates():
         os.execv(sys.executable, [sys.executable] + sys.argv)
     except FileNotFoundError:
         print("  git not found — skipping auto-update", flush=True)
+        threading.Thread(target=check_latest_release, daemon=True).start()
+    except subprocess.CalledProcessError:
+        print("  Not a git repo — skipping auto-update", flush=True)
         threading.Thread(target=check_latest_release, daemon=True).start()
     except Exception as e:
         print(f"  Update check skipped: {e}", flush=True)

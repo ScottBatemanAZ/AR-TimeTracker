@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-title Azazel's Razer — Time Tracker
+title Azazel's Razer -- Time Tracker
 
 echo.
 echo  ============================================
