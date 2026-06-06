@@ -3,7 +3,7 @@
 **Self-hosted time & cost tracker for 3D printing and design work.**  
 Built for a one-person LLC that runs FDM printers, a resin printer, and does design/modeling work — and needs to know exactly what a job costs before writing an invoice.
 
-![Version](https://img.shields.io/badge/version-Beta_10.2.2-7f77dd?style=flat-square)
+![Version](https://img.shields.io/badge/version-Beta_10.2.7-7f77dd?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.12-blue?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![No Framework](https://img.shields.io/badge/frontend-vanilla_JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
@@ -262,6 +262,7 @@ Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densi
 | **Beta 10.2.0** | Configurable storage — first-run modal chooses localStorage vs server file; auto-sync with sync indicator; storage mode visible in Settings with Reconfigure button; Server v1.4 |
 | **Beta 10.2.1** | Sync indicator, storage section in Settings, TRACKER_VERSION const, git-not-found logging |
 | **Beta 10.2.2** | Windows EXE + ZIP releases via GitHub Actions, in-app update badge, error logging, VERIFY.md |
+| **Beta 10.2.7** | Instant browser launch on EXE startup, first-run loading state, cleaner console output |
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 

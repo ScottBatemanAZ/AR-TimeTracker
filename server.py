@@ -25,7 +25,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 PORT = 5757
 SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.2.2"
+TRACKER_VERSION = "Beta 10.2.7"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -698,6 +698,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # suppress request logging
 
+    def log_error(self, format, *args):
+        # Suppress harmless "browser closed the connection" noise from the ZIP server
+        msg = format % args if args else format
+        if 'WinError 10053' in msg or 'ConnectionAbortedError' in msg or 'BrokenPipe' in msg:
+            return
+        print(f'[server error] {msg}')
+
 # ── STARTUP ───────────────────────────────────────────────────────────
 def get_lan_ip():
     """Return the machine's LAN IP by probing an outbound connection."""
@@ -778,7 +785,15 @@ def check_for_updates():
         threading.Thread(target=check_latest_release, daemon=True).start()
 
 def open_browser():
-    time.sleep(0.6)
+    # Poll until the server is actually accepting connections before opening the browser.
+    # In a frozen EXE, startup takes longer than the old 0.6s fixed delay.
+    for _ in range(40):
+        try:
+            s = socket.create_connection(('localhost', PORT), timeout=0.5)
+            s.close()
+            break
+        except OSError:
+            time.sleep(0.25)
     webbrowser.open(f"http://localhost:{PORT}")
 
 def shutdown(sig, frame):

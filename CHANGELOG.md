@@ -4,6 +4,11 @@ All notable changes to AR Time Tracker are documented here.
 
 ---
 
+## Beta 10.2.7
+- **Instant browser launch** — the EXE now waits until the server is actually accepting connections before opening the browser, eliminating the 15-20 second blank-page wait on first startup.
+- **First-run modal loading state** — "Confirm & Continue" button disables immediately on click and shows "Starting…" so users know something is happening and don't double-click.
+- **Cleaner console output** — harmless `ConnectionAbortedError [WinError 10053]` errors (browser closing the connection) are no longer printed to the console in ZIP/git mode.
+
 ## Beta 10.2.2
 - **Windows EXE** — standalone executable, no Python required. Download and double-click.
 - **ZIP release** — distributable archive for users with Python already installed.

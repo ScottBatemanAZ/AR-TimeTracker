@@ -3,7 +3,7 @@
 Self-contained time tracker for a 3D printing/design LLC. Vanilla HTML/CSS/JS front-end
 served by a Python stdlib HTTP server. No framework, no build step, no database.
 
-**Current version:** Beta 10.2.2 | **Server:** v1.5
+**Current version:** Beta 10.2.7 | **Server:** v1.5
 **Git remote:** https://github.com/ScottBatemanAZ/AR-TimeTracker
 **Project root (NAS):** `R:\Azazel's Razer\timetracker\`
 
@@ -349,3 +349,4 @@ git pull && docker compose restart
 | Beta 10.2.0 | Configurable storage — first-run modal on new installs chooses localStorage vs server file storage; server writes ar-data-live.json (1s debounced auto-sync on every saveData/persistSettings); Restore also syncs to server; .gitignore added (config.json, Logs/); Server v1.4 |
 | Beta 10.2.1 | QoL polish — sync indicator in sidebar footer (file mode only); Storage section in Settings shows current mode + Reconfigure button reopens first-run modal; stale version string in syncToServer/confirmFirstRun fixed (TRACKER_VERSION const); git-not-found in server.py now prints instead of silently passing; README updated to current feature set |
 | Beta 10.2.2 | Release packaging — GitHub Actions workflow builds ZIP + EXE on tag push; PyInstaller spec (AR-TimeTracker.spec) with frozen-mode path split (STATIC_DIR/DATA_DIR); GitHub releases API update check with in-app ⬆ badge in footer; improved launch.bat with Python detection; VERIFY.md with checksum + SmartScreen docs; Server v1.5 |
+| Beta 10.2.7 | Fast browser launch — `open_browser()` polls socket until server accepts connections (no more 15-20s blank-browser wait on EXE startup); first-run confirm button disables with "Starting…" to prevent multi-clicks; suppress `ConnectionAbortedError [WinError 10053]` console spam in ZIP mode |
