@@ -13,12 +13,14 @@ import json
 import time
 import io
 import zipfile
+import socket
+import subprocess
 from datetime import datetime
 
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
-SERVER_VERSION  = "1.2"
-TRACKER_VERSION = "Beta 10.0.0"
+SERVER_VERSION  = "1.3"
+TRACKER_VERSION = "Beta 10.1.0"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
@@ -519,6 +521,49 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass  # suppress request logging
 
 # ── STARTUP ───────────────────────────────────────────────────────────
+def get_lan_ip():
+    """Return the machine's LAN IP by probing an outbound connection."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
+
+def check_for_updates():
+    """Fetch from git remote; if behind, pull and re-exec with updated code."""
+    try:
+        # Confirm we're inside a git repo
+        subprocess.run(
+            ['git', 'rev-parse', '--git-dir'],
+            cwd=DIR, capture_output=True, check=True, timeout=5
+        )
+        print("  Checking for updates...", flush=True)
+        fetch = subprocess.run(
+            ['git', 'fetch', 'origin'],
+            cwd=DIR, capture_output=True, timeout=20
+        )
+        if fetch.returncode != 0:
+            print("  Could not reach remote — skipping update check", flush=True)
+            return
+        local  = subprocess.run(['git', 'rev-parse', 'HEAD'],
+                                cwd=DIR, capture_output=True, text=True, timeout=5)
+        remote = subprocess.run(['git', 'rev-parse', '@{u}'],
+                                cwd=DIR, capture_output=True, text=True, timeout=5)
+        if local.stdout.strip() == remote.stdout.strip():
+            print("  Up to date", flush=True)
+            return
+        print("  New version found — pulling updates...", flush=True)
+        subprocess.run(['git', 'pull'], cwd=DIR, check=True, timeout=30)
+        print("  Restarting with updated code...\n", flush=True)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except FileNotFoundError:
+        pass  # git not installed — skip silently
+    except Exception as e:
+        print(f"  Update check skipped: {e}", flush=True)
+
 def open_browser():
     time.sleep(0.6)
     webbrowser.open(f"http://localhost:{PORT}")
@@ -530,13 +575,17 @@ def shutdown(sig, frame):
 signal.signal(signal.SIGINT,  shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
+check_for_updates()
 load_printers_config()
 
 all_fdm   = printers_config.get('fdm', [])
 all_resin = printers_config.get('resin', [])
+lan_ip    = get_lan_ip()
 print(f"\n  Azazel's Razer Time Tracker")
 print(f"  Server v{SERVER_VERSION} running AR Tracker v{TRACKER_VERSION}")
-print(f"  Running at http://localhost:{PORT}")
+print(f"  Local  →  http://localhost:{PORT}")
+if lan_ip:
+    print(f"  LAN    →  http://{lan_ip}:{PORT}")
 for p in all_fdm:
     print(f"  FDM   [{p['id']}] {p['name']}  →  {p['moonrakerUrl']}")
 for p in all_resin:
