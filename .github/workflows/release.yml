@@ -18,7 +18,7 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           ZIP="AR-TimeTracker-${VERSION}.zip"
-          zip "$ZIP" \
+          zip -r "$ZIP" \
             index.html \
             server.py \
             filament-library.json \
@@ -29,6 +29,7 @@ jobs:
             icon-design.svg \
             icon-fdm.svg \
             icon-resin.svg \
+            fonts/ \
             launch.bat \
             docker-compose.yml \
             Dockerfile \

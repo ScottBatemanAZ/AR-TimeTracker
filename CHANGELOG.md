@@ -4,6 +4,9 @@ All notable changes to AR Time Tracker are documented here.
 
 ---
 
+## Beta 10.2.8
+- **Self-hosted fonts** — IBM Plex Mono and IBM Plex Sans are now bundled with the app instead of loaded from Google Fonts. Page renders instantly in all browsers (including incognito), works fully offline, and no longer leaks page-load events to Google.
+
 ## Beta 10.2.7
 - **Instant browser launch** — the EXE now waits until the server is actually accepting connections before opening the browser, eliminating the 15-20 second blank-page wait on first startup.
 - **First-run modal loading state** — "Confirm & Continue" button disables immediately on click and shows "Starting…" so users know something is happening and don't double-click.

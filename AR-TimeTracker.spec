@@ -17,6 +17,7 @@ bundled_assets = [
     ('icon-design.svg',       '.'),
     ('icon-fdm.svg',          '.'),
     ('icon-resin.svg',        '.'),
+    ('fonts',                 'fonts'),
 ]
 
 a = Analysis(

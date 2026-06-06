@@ -25,7 +25,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 PORT = 5757
 SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.2.7"
+TRACKER_VERSION = "Beta 10.2.8"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
