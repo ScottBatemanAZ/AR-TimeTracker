@@ -36,6 +36,33 @@ STATIC_DIR = sys._MEIPASS if IS_FROZEN else os.path.dirname(os.path.abspath(__fi
 DATA_DIR   = os.path.dirname(sys.executable) if IS_FROZEN else STATIC_DIR
 DIR        = STATIC_DIR   # kept for SimpleHTTPRequestHandler directory= arg
 
+# ── EARLY ERROR LOGGING ───────────────────────────────────────────────
+# Set up crash logging as early as possible so any startup error is captured.
+def _write_error_log(msg):
+    try:
+        log_path = os.path.join(DATA_DIR, 'ar-error.log')
+        with open(log_path, 'w', encoding='utf-8') as f:
+            f.write(f"AR Time Tracker crash log\n")
+            f.write(f"Version : {TRACKER_VERSION}\n")
+            f.write(f"Frozen  : {IS_FROZEN}\n")
+            f.write(f"DATA_DIR: {DATA_DIR}\n")
+            f.write(f"STATIC  : {STATIC_DIR}\n\n")
+            f.write(msg + "\n")
+        print(f"\nCrash log written to: {log_path}", flush=True)
+    except Exception as le:
+        print(f"\nCould not write crash log: {le}", flush=True)
+
+def _excepthook(exc_type, exc_value, exc_tb):
+    import traceback
+    msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    print(f"\nFATAL ERROR:\n{msg}", flush=True)
+    _write_error_log(f"Unhandled exception:\n{msg}")
+    if IS_FROZEN:
+        input("\nPress Enter to exit...")
+    sys.exit(1)
+
+sys.excepthook = _excepthook
+
 PRINTERS_FILE = os.path.join(DATA_DIR, 'printers.json')
 CONFIG_FILE   = os.path.join(DATA_DIR, 'config.json')
 
