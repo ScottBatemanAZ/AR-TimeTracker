@@ -7,6 +7,8 @@ services:
       - "5757:5757"
     volumes:
       - .:/app        # mount source dir so edits + git pulls are live instantly
+      # If using file storage mode, the dataPath must live inside /app.
+      # Recommended: set dataPath to /app/backups — files appear on the host at ./backups/
     environment:
       - DOCKER=1      # suppresses auto browser-open
     restart: unless-stopped

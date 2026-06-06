@@ -19,11 +19,13 @@ from datetime import datetime
 
 PORT = 5757
 DIR = os.path.dirname(os.path.abspath(__file__))
-SERVER_VERSION  = "1.3"
-TRACKER_VERSION = "Beta 10.1.0"
+SERVER_VERSION  = "1.4"
+TRACKER_VERSION = "Beta 10.2.0"
 POLL_INTERVAL   = 5  # seconds
 
 PRINTERS_FILE = os.path.join(DIR, 'printers.json')
+CONFIG_FILE   = os.path.join(DIR, 'config.json')
+
 DEFAULT_PRINTERS = {
     'fdm':   [{'id': 'fdm-0', 'name': 'Neptune 4 Plus', 'moonrakerUrl': 'http://192.168.0.74'}],
     'resin': []
@@ -35,6 +37,9 @@ FILENAME_MATERIAL_PATTERNS = [
     'PETG', 'PLA+', 'PLA', 'ABS', 'ASA', 'TPU', 'TPE', 'HIPS',
     'Nylon', 'PC', 'PVA', 'PP', 'PEEK',
 ]
+
+# App config — loaded from config.json (storageMode, dataPath)
+app_config = {}
 
 # Printer config — loaded from printers.json, hot-reloaded via /update-printers
 printers_config = dict(DEFAULT_PRINTERS)
@@ -72,6 +77,60 @@ def save_printers_config(config):
         json.dump(config, f, indent=2)
     with config_lock:
         printers_config = config
+
+# ── APP CONFIG ───────────────────────────────────────────────────────
+def load_config():
+    global app_config
+    try:
+        with open(CONFIG_FILE, encoding='utf-8') as f:
+            app_config = json.load(f)
+    except FileNotFoundError:
+        app_config = {}
+    except Exception as e:
+        print(f"  Warning: could not load config.json: {e}")
+        app_config = {}
+
+def save_app_config(cfg):
+    global app_config
+    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2)
+    app_config = cfg
+
+# ── FILE STORAGE ──────────────────────────────────────────────────────
+def resolve_data_path(data_path):
+    """Resolve relative paths relative to the server directory."""
+    if not os.path.isabs(data_path):
+        return os.path.join(DIR, data_path)
+    return data_path
+
+def load_data_from_path(data_path):
+    """Load ar-data-live.json, falling back to the most recent dated backup."""
+    resolved = resolve_data_path(data_path)
+    live = os.path.join(resolved, 'ar-data-live.json')
+    try:
+        if os.path.exists(live):
+            with open(live, encoding='utf-8') as f:
+                return json.load(f)
+        # Fallback: most recently modified .json in the directory
+        candidates = [
+            os.path.join(resolved, fn)
+            for fn in os.listdir(resolved)
+            if fn.endswith('.json') and fn != 'ar-data-live.json'
+        ]
+        if candidates:
+            with open(max(candidates, key=os.path.getmtime), encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"  Warning: could not load data file from {resolved!r}: {e}")
+    return None
+
+def save_data_to_path(data_path, payload):
+    """Write payload to ar-data-live.json (overwrites each time — acts as live save)."""
+    resolved = resolve_data_path(data_path)
+    os.makedirs(resolved, exist_ok=True)
+    live = os.path.join(resolved, 'ar-data-live.json')
+    with open(live, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2)
 
 # ── FILENAME FALLBACK ─────────────────────────────────────────────────
 def material_from_filename(filename):
@@ -450,6 +509,45 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=DIR, **kwargs)
 
     def do_POST(self):
+        if self.path == '/save-config':
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                cfg    = json.loads(self.rfile.read(length).decode())
+                save_app_config(cfg)
+                mode = cfg.get('storageMode', 'local')
+                path = cfg.get('dataPath', '')
+                print(f"  Config saved: storageMode={mode!r}" + (f", dataPath={path!r}" if path else ''))
+                body = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+            return
+        if self.path == '/save-data':
+            try:
+                length  = int(self.headers.get('Content-Length', 0))
+                payload = json.loads(self.rfile.read(length).decode())
+                data_path = app_config.get('dataPath', '')
+                if data_path:
+                    save_data_to_path(data_path, payload)
+                body = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+            return
         if self.path == '/update-printers':
             try:
                 length = int(self.headers.get('Content-Length', 0))
@@ -495,6 +593,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
 
     def do_GET(self):
+        if self.path == '/app-config':
+            mode = app_config.get('storageMode')
+            body = json.dumps({
+                'configured': mode is not None,
+                'storageMode': mode or 'local',
+                'dataPath':    app_config.get('dataPath', ''),
+            }).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path == '/load-data':
+            data_path = app_config.get('dataPath', '')
+            loaded = load_data_from_path(data_path) if data_path else None
+            body = json.dumps(loaded or {}).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/printer-status":
             with states_lock:
                 payload = json.dumps(printer_states).encode()
@@ -576,6 +701,7 @@ signal.signal(signal.SIGINT,  shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
 check_for_updates()
+load_config()
 load_printers_config()
 
 all_fdm   = printers_config.get('fdm', [])
@@ -586,6 +712,13 @@ print(f"  Server v{SERVER_VERSION} running AR Tracker v{TRACKER_VERSION}")
 print(f"  Local  →  http://localhost:{PORT}")
 if lan_ip:
     print(f"  LAN    →  http://{lan_ip}:{PORT}")
+storage_mode = app_config.get('storageMode')
+if storage_mode == 'file':
+    print(f"  Storage → file  ({app_config.get('dataPath','')})")
+elif storage_mode == 'local':
+    print(f"  Storage → localStorage (browser)")
+else:
+    print(f"  Storage → not configured (first-run modal will appear)")
 for p in all_fdm:
     print(f"  FDM   [{p['id']}] {p['name']}  →  {p['moonrakerUrl']}")
 for p in all_resin:

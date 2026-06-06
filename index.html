@@ -272,6 +272,11 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
   .app-footer { flex-shrink: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; color: #636370; letter-spacing: .05em; }
+  .fr-card { border: 2px solid var(--border2); border-radius: 6px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .fr-card:hover { border-color: var(--accent); }
+  .fr-card.fr-active { border-color: var(--accent); background: rgba(127,119,221,.06); }
+  .fr-card-title { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .fr-card-desc { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -480,7 +485,7 @@
     </div>
     <footer class="app-footer">
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
-      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta 10.1.0</span></span>
+      <span><button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button> &nbsp;|&nbsp; <span id="footerVersion">Beta 10.2.0</span></span>
     </footer>
   </div>
 </div>
@@ -537,6 +542,30 @@
     <div style="font-size:9.5px;color:var(--dim);font-family:var(--mono);">Shortcuts are disabled while typing in any input field.</div>
     <div class="modal-actions">
       <button class="btn-create" onclick="closeModal('shortcutsModal')">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- FIRST RUN MODAL -->
+<div class="modal-backdrop" id="firstRunModal" style="z-index:200;">
+  <div class="modal" style="width:500px;">
+    <div class="modal-title" style="color:var(--accent);">Welcome — Choose Storage</div>
+    <p style="font-family:var(--mono);font-size:10.5px;color:var(--muted);margin:0 0 16px;line-height:1.7;">Saved once in <code style="background:var(--surface2);padding:1px 5px;border-radius:2px;font-size:10px;">config.json</code> on the server. You can change it later by editing that file and restarting.</p>
+    <div id="frOptLocal" class="fr-card fr-active" onclick="frSelect('local')">
+      <div class="fr-card-title">🌐 Browser Storage <span style="font-weight:400;color:var(--muted);">(default)</span></div>
+      <div class="fr-card-desc">Data lives in this browser's localStorage. No setup needed — works immediately. Use Backup / Restore to move data between machines or browsers.</div>
+    </div>
+    <div id="frOptFile" class="fr-card" onclick="frSelect('file')">
+      <div class="fr-card-title">📁 File Storage</div>
+      <div class="fr-card-desc">Data is saved to a JSON file on the server. Survives browser clears and works from any browser on the network. Requires a running server.</div>
+      <div id="frPathRow" style="display:none;margin-top:12px;">
+        <label class="form-label" style="margin-bottom:4px;">Directory path on server</label>
+        <input type="text" id="frPathInput" placeholder="e.g. /app/backups  or  C:\Users\...\backups" style="width:100%;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:6px 8px;outline:none;box-sizing:border-box;" />
+        <div style="font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:5px;line-height:1.6;">In Docker: use <code style="background:var(--surface3);padding:1px 4px;border-radius:2px;">/app/backups</code> (inside the mounted <code style="background:var(--surface3);padding:1px 4px;border-radius:2px;">/app</code> volume). Paths with spaces are fine.</div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:18px;">
+      <button class="btn-create" onclick="confirmFirstRun()">Confirm &amp; Continue →</button>
     </div>
   </div>
 </div>
@@ -926,7 +955,10 @@ function loadSettings() {
     }
   } catch {}
 }
-function persistSettings() { localStorage.setItem('ar_tracker_settings', JSON.stringify(settings)); }
+function persistSettings() {
+  localStorage.setItem('ar_tracker_settings', JSON.stringify(settings));
+  if (storageMode === 'file') { clearTimeout(_saveTimer); _saveTimer = setTimeout(syncToServer, 1000); }
+}
 function updateRateLabels() {
   document.getElementById('designRateLabel').textContent = '$'+settings.laborRate+'/hr labor';
   document.getElementById('fdmRateLabel').textContent    = '$'+settings.fdmRate+'/hr machine';
@@ -1075,7 +1107,10 @@ function loadData() {
     if (!p.receipts)       p.receipts=[];
   });
 }
-function saveData() { localStorage.setItem('ar_tracker_v1', JSON.stringify(data)); }
+function saveData() {
+  localStorage.setItem('ar_tracker_v1', JSON.stringify(data));
+  if (storageMode === 'file') { clearTimeout(_saveTimer); _saveTimer = setTimeout(syncToServer, 1000); }
+}
 function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
 // ── FORMATTING ────────────────────────────────────────────────────────
@@ -2607,7 +2642,7 @@ function importBackup() {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
       try {
         const backup = JSON.parse(ev.target.result);
         if (backup.type !== 'ar-tracker-backup' || (!backup.data && !backup.settings)) {
@@ -2620,6 +2655,8 @@ function importBackup() {
         )) return;
         if (backup.data)     localStorage.setItem('ar_tracker_v1',       backup.data);
         if (backup.settings) localStorage.setItem('ar_tracker_settings', backup.settings);
+        // In file mode, push restored data to server before reload so it persists
+        if (storageMode === 'file') await syncToServer();
         location.reload();
       } catch(err) {
         alert('Could not read backup file: ' + err.message);
@@ -2658,9 +2695,95 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'e' || e.key === 'E') && activeProject) { e.preventDefault(); openExportModal(); return; }
 });
 
+// ── STORAGE MODE ──────────────────────────────────────────────────────
+let storageMode = 'local';
+let _saveTimer  = null;
+let _frChoice   = 'local';
+
+function frSelect(mode) {
+  _frChoice = mode;
+  document.getElementById('frOptLocal').classList.toggle('fr-active', mode === 'local');
+  document.getElementById('frOptFile').classList.toggle('fr-active', mode === 'file');
+  document.getElementById('frPathRow').style.display = mode === 'file' ? 'block' : 'none';
+}
+
+async function syncToServer() {
+  if (storageMode !== 'file') return;
+  try {
+    await fetch('/save-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'ar-tracker-backup', version: '8.4',
+        exported: new Date().toISOString(),
+        data:     localStorage.getItem('ar_tracker_v1'),
+        settings: localStorage.getItem('ar_tracker_settings'),
+      })
+    });
+  } catch (e) { console.warn('[AR] auto-save to server failed:', e); }
+}
+
+async function confirmFirstRun() {
+  const mode = _frChoice;
+  const path = mode === 'file' ? document.getElementById('frPathInput').value.trim() : '';
+  if (mode === 'file' && !path) { alert('Please enter a directory path for file storage.'); return; }
+  try {
+    const r = await fetch('/save-config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storageMode: mode, dataPath: path })
+    });
+    if (!r.ok) throw new Error('Server error ' + r.status);
+    // Migrate any existing localStorage data to the new file store
+    if (mode === 'file') {
+      await fetch('/save-data', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'ar-tracker-backup', version: '8.4',
+          exported: new Date().toISOString(),
+          data:     localStorage.getItem('ar_tracker_v1'),
+          settings: localStorage.getItem('ar_tracker_settings'),
+        })
+      });
+    }
+  } catch (e) {
+    alert('Could not save config: ' + e.message + '\n\nMake sure the server is running.');
+    return;
+  }
+  location.reload();
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────
-loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
-if(data.projects.length>0) selectProject(data.projects[0].id);
+(async function initApp() {
+  // Try to read server config; silently fall back to localStorage if server is absent
+  let cfg = { configured: true, storageMode: 'local' };
+  try {
+    const r = await fetch('/app-config', { cache: 'no-store' });
+    if (r.ok) cfg = await r.json();
+  } catch {}
+
+  if (!cfg.configured) {
+    // First run — show storage selection modal and stop here
+    document.getElementById('firstRunModal').classList.add('open');
+    return;
+  }
+
+  storageMode = cfg.storageMode || 'local';
+
+  if (storageMode === 'file') {
+    try {
+      const r = await fetch('/load-data', { cache: 'no-store' });
+      if (r.ok) {
+        const d = await r.json();
+        // Server payload uses the same format as the backup file
+        if (d.data)     localStorage.setItem('ar_tracker_v1',       d.data);
+        if (d.settings) localStorage.setItem('ar_tracker_settings', d.settings);
+      }
+    } catch (e) { console.warn('[AR] could not load from server, using localStorage:', e); }
+  }
+
+  loadSettings(); loadData(); updateRateLabels(); renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
+  if (data.projects.length > 0) selectProject(data.projects[0].id);
+})();
 </script>
 </body>
 </html>
