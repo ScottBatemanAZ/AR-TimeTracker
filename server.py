@@ -25,7 +25,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 PORT = 5757
 SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.2.10"
+TRACKER_VERSION = "Beta 10.3.0"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ GITHUB_REPO   = 'ScottBatemanAZ/AR-TimeTracker'
 _latest_release = {'checked': False, 'available': False, 'version': '', 'url': ''}
 
 DEFAULT_PRINTERS = {
-    'fdm':   [{'id': 'fdm-0', 'name': 'Neptune 4 Plus', 'moonrakerUrl': 'http://192.168.0.74'}],
+    'fdm':   [],
     'resin': []
 }
 

@@ -8,6 +8,12 @@ All notable changes to AR Time Tracker are documented here.
 - **Instant first load** — browser now opens to `http://127.0.0.1:5757` instead of `localhost`, bypassing the Windows IPv6-first DNS lookup that caused a multi-second delay on every cold start.
 - **Silent connection errors** — WinError 10053 / BrokenPipe / ConnectionReset tracebacks no longer flood the console; suppressed at the server level via a custom `handle_error` override.
 
+## Beta 10.3.0
+- **First-run onboarding wizard** — new installs now walk through three steps: storage selection, branding setup, then Settings auto-opens so rates can be configured before use.
+- **Branding** — business name, logo upload (stored as base64), and accent color are configurable from both the first-run wizard and Settings. Applied immediately to sidebar, page title, and invoice header/footer.
+- **Clean new-install defaults** — all rates start at $0, no printers pre-configured, no assumed business name. Existing installs are automatically detected and skipped past the setup flow.
+- **Configurable accent color** — one color picker in Settings controls the primary accent (Design track, buttons, highlights) with live preview on save.
+
 ## Beta 10.2.9
 - **Clean startup log** — ZIP/source mode no longer shows the raw `CalledProcessError` when run outside a git repo; shows "Not a git repo — skipping auto-update" instead. GitHub 404 (no release published yet) shows "No GitHub release published yet" instead of an HTTP error string.
 - **Fixed console title** — `launch.bat` title command now uses `--` instead of an em-dash, preventing garbled `ΓÇö` characters in the Windows terminal tab title.
