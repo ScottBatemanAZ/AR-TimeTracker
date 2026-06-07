@@ -495,7 +495,7 @@
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
       <span>
         <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
-        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.3.0</span>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.3.1</span>
         <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
       </span>
     </footer>
@@ -900,6 +900,14 @@
         <label class="form-label">Electricity ($/kWh)</label>
         <input type="number" id="setElectricityRate" step="0.01" min="0" placeholder="e.g. 0.12" />
       </div>
+      <div class="form-row">
+        <label class="form-label">Tax Rate (%)</label>
+        <input type="number" id="setTaxRate" step="0.1" min="0" placeholder="e.g. 8.5" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Tax Label</label>
+        <input type="text" id="setTaxLabel" placeholder="Sales Tax" />
+      </div>
       <div class="form-row" style="align-items:center;">
         <label class="form-label" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="setShowEstimates" style="accent-color:var(--accent);width:14px;height:14px;" />
@@ -986,7 +994,7 @@
 <script>
 // ── DEFAULTS ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  laborRate: 0, fdmRate: 0, resinRate: 0, electricityRate: 0, showEstimates: false,
+  laborRate: 0, fdmRate: 0, resinRate: 0, electricityRate: 0, taxRate: 0, taxLabel: 'Sales Tax', showEstimates: false,
   fdmPrinters:   [],
   resinPrinters: [],
   branding: { businessName: '', logoDataUrl: '', accentColor: '' },
@@ -1073,6 +1081,8 @@ function openSettings() {
   document.getElementById('setFdmRate').value         = settings.fdmRate;
   document.getElementById('setResinRate').value       = settings.resinRate;
   document.getElementById('setElectricityRate').value = settings.electricityRate ?? 0;
+  document.getElementById('setTaxRate').value          = settings.taxRate ?? 0;
+  document.getElementById('setTaxLabel').value         = settings.taxLabel ?? 'Sales Tax';
   document.getElementById('setShowEstimates').checked = !!settings.showEstimates;
   renderFilamentTypesList();
   renderResinTypesList();
@@ -1208,6 +1218,8 @@ function saveSettingsModal() {
   settings.fdmRate         = n('setFdmRate',         0);
   settings.resinRate       = n('setResinRate',       0);
   settings.electricityRate = n('setElectricityRate', 0);
+  settings.taxRate         = n('setTaxRate',         0);
+  settings.taxLabel        = document.getElementById('setTaxLabel').value.trim() || 'Sales Tax';
   settings.showEstimates   = document.getElementById('setShowEstimates').checked;
   persistSettings();
   fetch('/update-printers', {
@@ -2288,7 +2300,10 @@ function generateInvoice(withMarkup) {
 
   const subtotal     = lines.reduce((sum,l)=>sum+l.amount, 0);
   const markupAmount = withMarkup ? subtotal*(markupPct/100) : 0;
-  const total        = subtotal + markupAmount;
+  const taxRate      = settings.taxRate || 0;
+  const taxLabel     = settings.taxLabel || 'Sales Tax';
+  const taxAmount    = taxRate > 0 ? (subtotal + markupAmount) * (taxRate/100) : 0;
+  const total        = subtotal + markupAmount + taxAmount;
 
   const fmtD = str=>{ if(!str) return 'N/A'; const d=new Date(str+'T12:00:00'); return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); };
   const esc  = s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2310,6 +2325,9 @@ function generateInvoice(withMarkup) {
 
   const markupRowHtml = withMarkup
     ? '<tr class="fee-row"><td colspan="2" class="tl">Service Fee ('+markupPct+'%)</td><td class="ta">$'+markupAmount.toFixed(2)+'</td></tr>'
+    : '';
+  const taxRowHtml = taxAmount > 0
+    ? '<tr class="fee-row"><td colspan="2" class="tl">'+esc(taxLabel)+' ('+taxRate+'%)</td><td class="ta">$'+taxAmount.toFixed(2)+'</td></tr>'
     : '';
 
   const notesHtml = notes
@@ -2385,6 +2403,7 @@ function generateInvoice(withMarkup) {
     '    <table class="tot">',
     '      <tr class="sub-row"><td></td><td class="tl">Subtotal</td><td class="ta">$'+subtotal.toFixed(2)+'</td></tr>',
     '      '+markupRowHtml,
+    '      '+taxRowHtml,
     '      <tr class="fin-row"><td></td><td class="tl">Total Due</td><td class="ta">$'+total.toFixed(2)+'</td></tr>',
     '    </table>',
     '  </div>',
@@ -2831,7 +2850,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.3.0';
+const TRACKER_VERSION = 'Beta 10.3.1';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';
