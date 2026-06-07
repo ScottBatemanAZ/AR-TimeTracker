@@ -1,4 +1,6 @@
 config.json
+printers.json
+ar-data-live.json
 Logs/
 Backups/
 __pycache__/
@@ -9,3 +11,5 @@ AR-Tracker-Backup-*.json
 Thumbs.db
 patch.py
 .vscode/
+.claude/
+CLAUDE.md

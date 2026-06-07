@@ -2,7 +2,7 @@
 # Run this once to create the desktop shortcut for Azazel's Razer Time Tracker
 # Right-click > Run with PowerShell  OR  run from PowerShell terminal
 
-$TrackerDir  = "R:\Azazel's Razer\timetracker"
+$TrackerDir  = $PSScriptRoot
 $BatFile     = Join-Path $TrackerDir "launch.bat"
 $IconFile    = Join-Path $TrackerDir "ARSymbol.ico"
 $ShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "Azazel's Razer Time Tracker.lnk"

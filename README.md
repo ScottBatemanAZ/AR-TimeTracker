@@ -182,7 +182,7 @@ Add your printer(s) in Settings → **FDM Printers**:
 | Field | Example |
 |---|---|
 | Name | Neptune 4 Plus |
-| Moonraker URL | http://192.168.0.74 |
+| Moonraker URL | http://192.168.0.10 |
 | Watts | 350 |
 
 With one printer configured, the tracker behaves exactly as described — single punch button, automatic sessions.  
