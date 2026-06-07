@@ -274,9 +274,8 @@ See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ## Roadmap
 
-| Feature | Status |
-|---|---|
-| Configurable branding (logo, colors, company name) for self-hosters | Planned |
+| Feature                  | Status                |
+|--------------------------|-----------------------|
 | Proton Drive integration | Waiting on public API |
 
 ---
@@ -312,10 +311,10 @@ GitHub Actions will:
 
 ## Built With
 
-Made with [Claude Code](https://claude.ai/claude-code) by Anthropic — the entire codebase was written collaboratively in Claude Code sessions, from the first line to Beta 10.2.0.
+Made with [Claude Code](https://claude.ai/claude-code) by Anthropic — the entire codebase was written collaboratively in Claude Code sessions, from the first line to the current release.
 
 ---
 
 ## License
 
-License TBD. All rights reserved in the meantime.
+[AGPL-3.0](LICENSE) — free to use, modify, and self-host. If you distribute a modified version (including over a network), you must publish the source under the same license.
