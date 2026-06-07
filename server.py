@@ -9,6 +9,7 @@ import webbrowser
 import threading
 import urllib.request
 import urllib.error
+import urllib.parse
 import json
 import time
 import io
@@ -25,7 +26,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 PORT = 5757
 SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.3.0"
+TRACKER_VERSION = "Beta 10.4.0"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -76,9 +77,10 @@ DEFAULT_PRINTERS = {
 
 # Known filament types to scan for in filenames (order matters — longer matches first)
 FILENAME_MATERIAL_PATTERNS = [
-    'PETG-CF', 'PLA-CF', 'ABS-CF', 'ASA-CF', 'PC-CF', 'PA-CF',
+    'PETG-CF', 'PLA-CF', 'ABS-CF', 'ABS-GF', 'ASA-CF', 'PC-CF', 'PC-FR',
+    'PAHT-CF', 'PA6-CF', 'PA6-GF', 'PA12-CF', 'PA-CF',
     'PETG', 'PLA+', 'PLA', 'ABS', 'ASA', 'TPU', 'TPE', 'HIPS',
-    'Nylon', 'PC', 'PVA', 'PP', 'PEEK',
+    'PA6', 'PA12', 'Nylon', 'PA', 'PC', 'PVA', 'PP', 'PEEK', 'PEKK',
 ]
 
 # App config — loaded from config.json (storageMode, dataPath)
@@ -229,16 +231,23 @@ def fetch_metadata(printer_id, base_url, filename):
             printer_states[printer_id]["estimated_time"] = estimated_time
     _last_meta[printer_id] = filename
 
-def poll_printer(printer):
+def _split_printer_url(url):
+    """Split a configured printer URL into (base_url, api_key).
+
+    OctoPrint users append `?apikey=...` to the URL — OctoPrint's own documented
+    way of supplying an API key via query string. Its presence is what tells us
+    we're talking to OctoPrint rather than a (keyless) Moonraker instance, so
+    no separate "printer type" setting is needed — just the one URL field.
+    """
+    parsed  = urllib.parse.urlsplit((url or '').strip())
+    api_key = (urllib.parse.parse_qs(parsed.query).get('apikey') or [''])[0]
+    base    = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip('/'), '', ''))
+    return base, api_key
+
+def poll_moonraker(printer, base_url):
     """Poll a single Moonraker instance and update its state entry."""
-    pid      = printer['id']
-    base_url = printer['moonrakerUrl'].rstrip('/')
+    pid       = printer['id']
     query_url = f"{base_url}/printer/objects/query?print_stats"
-
-    with states_lock:
-        if pid not in printer_states:
-            printer_states[pid] = _blank_state(printer.get('name', pid))
-
     try:
         req  = urllib.request.urlopen(query_url, timeout=8)
         body = json.loads(req.read().decode())
@@ -263,6 +272,65 @@ def poll_printer(printer):
                 "reachable":    False,
             })
 
+def poll_octoprint(printer, base_url, api_key):
+    """Poll a single OctoPrint instance (via /api/job) and update its state entry.
+
+    OctoPrint doesn't expose slicer filament metadata the way Moonraker does, so
+    material type falls back to material_from_filename() — same as the Moonraker
+    path takes for slicers whose metadata Moonraker can't parse.
+    """
+    pid = printer['id']
+    try:
+        req  = urllib.request.Request(f"{base_url}/api/job", headers={'X-Api-Key': api_key})
+        body = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
+        job      = body.get('job', {}) or {}
+        progress = body.get('progress', {}) or {}
+        state    = (body.get('state') or '').lower()
+
+        if 'printing' in state:               status = 'printing'
+        elif 'paus' in state:                 status = 'paused'
+        elif 'cancelling' in state:           status = 'cancelled'
+        elif 'error' in state or 'closed' in state: status = 'error'
+        else:                                 status = 'standby'
+
+        filename = ((job.get('file') or {}).get('name')) or ''
+        filament = job.get('filament') or {}
+        tool0    = filament.get('tool0') or (next(iter(filament.values()), {}) or {})
+
+        with states_lock:
+            printer_states[pid].update({
+                "status":         status,
+                "filename":       filename,
+                "print_duration": progress.get('printTime', 0) or 0,
+                "filament_used":  tool0.get('length', 0) or 0,
+                "filament_type":  material_from_filename(filename) if filename else "",
+                "filament_name":  "",
+                "estimated_time": job.get('estimatedPrintTime', 0) or 0,
+                "last_checked":   time.time(),
+                "reachable":      True,
+            })
+    except Exception:
+        with states_lock:
+            printer_states[pid].update({
+                "status":       "unreachable",
+                "last_checked": time.time(),
+                "reachable":    False,
+            })
+
+def poll_printer(printer):
+    """Poll a single printer — Moonraker or OctoPrint, auto-detected from its URL
+    (see _split_printer_url) — and update its shared printer_states entry."""
+    pid = printer['id']
+    with states_lock:
+        if pid not in printer_states:
+            printer_states[pid] = _blank_state(printer.get('name', pid))
+
+    base_url, api_key = _split_printer_url(printer.get('moonrakerUrl', ''))
+    if api_key:
+        poll_octoprint(printer, base_url, api_key)
+    else:
+        poll_moonraker(printer, base_url)
+
 def poll_all_printers():
     """Background thread — polls every configured printer once per interval."""
     while True:
@@ -271,6 +339,17 @@ def poll_all_printers():
         for printer in all_printers:
             poll_printer(printer)
         time.sleep(POLL_INTERVAL)
+
+# ── SPOOLMAN PROXY ────────────────────────────────────────────────────
+# Browser → Spoolman direct calls would hit CORS; the server proxies instead
+# (same reason Moonraker is polled server-side and exposed via /printer-status).
+def spoolman_call(base_url, path, method='GET', body=None, timeout=8):
+    url     = f"{base_url.rstrip('/')}/api/v1{path}"
+    data    = json.dumps(body).encode() if body is not None else None
+    headers = {'Content-Type': 'application/json'} if data is not None else {}
+    req     = urllib.request.Request(url, data=data, method=method, headers=headers)
+    raw     = urllib.request.urlopen(req, timeout=timeout).read().decode()
+    return json.loads(raw) if raw else {}
 
 # ── ODS GENERATOR ────────────────────────────────────────────────────
 def generate_ods(payload):
@@ -561,7 +640,66 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIR, **kwargs)
 
+    def _send_json(self, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_json_body(self):
+        length = int(self.headers.get('Content-Length', 0))
+        return json.loads(self.rfile.read(length).decode())
+
     def do_POST(self):
+        if self.path == '/spoolman/check':
+            try:
+                url = (self._read_json_body().get('url') or '').strip()
+                if not url:
+                    raise ValueError('No URL provided')
+                spoolman_call(url, '/health')
+                version = ''
+                try:
+                    version = spoolman_call(url, '/info').get('version', '')
+                except Exception:
+                    pass
+                self._send_json({'ok': True, 'version': version})
+            except Exception as e:
+                self._send_json({'ok': False, 'error': str(e)})
+            return
+        if self.path == '/spoolman/spools':
+            try:
+                url = (self._read_json_body().get('url') or '').strip()
+                if not url:
+                    raise ValueError('No URL provided')
+                spools  = spoolman_call(url, '/spool?allow_archived=false')
+                trimmed = [{
+                    'id':               s.get('id'),
+                    'name':             (s.get('filament') or {}).get('name') or f"Spool #{s.get('id')}",
+                    'material':         (s.get('filament') or {}).get('material') or '',
+                    'vendor':           ((s.get('filament') or {}).get('vendor') or {}).get('name') or '',
+                    'remaining_weight': s.get('remaining_weight'),
+                } for s in spools]
+                self._send_json({'ok': True, 'spools': trimmed})
+            except Exception as e:
+                self._send_json({'ok': False, 'error': str(e), 'spools': []})
+            return
+        if self.path == '/spoolman/use':
+            try:
+                payload  = self._read_json_body()
+                url      = (payload.get('url') or '').strip()
+                spool_id = int(payload.get('spoolId'))
+                grams    = float(payload.get('grams'))
+                if not url or grams <= 0:
+                    raise ValueError('Missing url or grams')
+                updated = spoolman_call(url, f'/spool/{spool_id}/use', method='PUT', body={'use_weight': grams})
+                self._send_json({'ok': True, 'remaining_weight': updated.get('remaining_weight')})
+            except Exception as e:
+                self._send_json({'ok': False, 'error': str(e)})
+            return
         if self.path == '/save-config':
             try:
                 length = int(self.headers.get('Content-Length', 0))

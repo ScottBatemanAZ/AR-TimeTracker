@@ -3,7 +3,7 @@
 **Self-hosted time & cost tracker for 3D printing and design work.**  
 Built for a one-person LLC that runs FDM printers, a resin printer, and does design/modeling work — and needs to know exactly what a job costs before writing an invoice.
 
-![Version](https://img.shields.io/badge/version-Beta_10.3.0-7f77dd?style=flat-square)
+![Version](https://img.shields.io/badge/version-Beta_10.4.0-7f77dd?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.12-blue?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![No Framework](https://img.shields.io/badge/frontend-vanilla_JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
@@ -32,7 +32,7 @@ Built for a one-person LLC that runs FDM printers, a resin printer, and does des
 
 Three parallel time tracks — **Design**, **FDM**, and **Resin** — each with their own cost model. Punch in, punch out, log materials, and at the end you have a real cost breakdown and a ready-to-send invoice. No cloud dependency, no account, no subscription.
 
-If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself in and out automatically when a print starts and finishes.
+If you run Klipper/Moonraker or OctoPrint on your FDM printer, the tracker can punch itself in and out automatically when a print starts and finishes.
 
 ---
 
@@ -56,14 +56,23 @@ If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself i
 - Live running cost badge in the topbar while clocked in
 - Live running totals update every second while clocked in
 
-### Moonraker Integration
-- Polls your Klipper/Moonraker endpoint every 5 seconds
-- **Auto punch-in** when a print starts (backdates to actual print start using `print_duration`)
+### Printer Integration — Moonraker & OctoPrint
+- Works with **Klipper/Moonraker** or **OctoPrint** — just paste the printer's URL, no "printer type" picker. OctoPrint is auto-detected when you append `?apikey=YOUR_KEY` to the URL (its own documented way of passing an API key)
+- Polls your printer endpoint every 5 seconds
+- **Auto punch-in** when a print starts (backdates to actual print start using elapsed print time)
 - **Auto punch-out** when the print finishes, with a prompt to log filament used
-- Reads filament type from G-code metadata; falls back to filename parsing for OrcaSlicer files
+- Reads filament type from G-code metadata where available (Moonraker); falls back to filename parsing across PrusaSlicer, OrcaSlicer, Bambu Studio, Cura, SuperSlicer, and other slicers — recognizes 30+ material codes including carbon/glass-fiber and engineering blends (PA6-CF, PC-FR, PEKK, etc.)
 - Online/printing/offline status dot in the UI
-- **Multi-printer support** — configure multiple FDM or Resin printers, each polling independently with their own status cards
-- Time estimate capture from Moonraker `estimated_time` metadata
+- **Multi-printer support** — configure multiple FDM or Resin printers (any mix of Moonraker and OctoPrint), each polling independently with their own status cards
+- Time estimate capture from `estimated_time` metadata
+
+### Spoolman Integration (optional)
+- Connects to a self-hosted [Spoolman](https://github.com/Donkie/Spoolman) instance for filament spool tracking
+- Settings → enter your Spoolman URL and **Test Connection** — proxied server-side to dodge browser CORS, same as Moonraker
+- FDM material modal gains a **spool picker** showing each spool's name, vendor, and remaining weight
+- Logging filament grams **automatically deducts** that weight from the linked spool via Spoolman's API
+- Linked spool shown as a 🧵 tag in the session log
+- Fully optional — stays hidden until configured; the app behaves exactly as before if you don't use Spoolman
 
 ### Projects
 - Unlimited projects, switch instantly from the sidebar
@@ -82,6 +91,7 @@ If you run Klipper/Moonraker on your FDM printer, the tracker can punch itself i
   *(works in LibreOffice Calc)*
 - **Tracking Log (.csv)** — flat session dump, no server required
 - **Reduced rate** option ($30/hr Design labor) for invoice exports
+- **Tax rate** — optional configurable tax rate and label, applied as a line item on generated invoices
 - Export modal stays open after each export for easy multi-format downloads
 
 ### Data & Storage
@@ -175,18 +185,26 @@ Open **⚙ Settings** in the sidebar to configure:
 - **Printers** — name, Moonraker URL, and wattage for each FDM or Resin printer
 - **Storage mode** — shown at the bottom of Settings; click "Reconfigure…" to switch modes
 
-### Moonraker / Multi-Printer
+### Printers / Multi-Printer
 
-Add your printer(s) in Settings → **FDM Printers**:
+Add your printer(s) in Settings → **FDM Printers**. Works with either Moonraker or OctoPrint — just paste the URL:
 
-| Field | Example |
-|---|---|
-| Name | Neptune 4 Plus |
-| Moonraker URL | http://192.168.0.10 |
-| Watts | 350 |
+| Field | Example (Moonraker) | Example (OctoPrint) |
+|---|---|---|
+| Name | Neptune 4 Plus | Ender 3 |
+| Printer URL | http://192.168.0.10 | http://192.168.0.20?apikey=YOUR_KEY |
+| Watts | 350 | 220 |
+
+For OctoPrint, append your API key as a query string on the URL (find it in OctoPrint → Settings → API) — its presence is what tells the tracker to talk to OctoPrint instead of Moonraker. No separate "printer type" setting required.
 
 With one printer configured, the tracker behaves exactly as described — single punch button, automatic sessions.  
-With two or more, each printer gets its own compact status card below the main clock, with independent tracking and status dots.
+With two or more, each printer gets its own compact status card below the main clock, with independent tracking and status dots, regardless of which backend each one runs.
+
+### Spoolman (optional)
+
+Don't have [Spoolman](https://github.com/Donkie/Spoolman) set up? Skip this — the app works exactly the same without it.
+
+If you do, go to ⚙ Settings → **Spoolman** and enter your instance's URL (e.g. `http://192.168.0.xx:7912`), then click **Test Connection**. Once connected, the FDM material modal shows a spool picker — selecting a spool and saving filament grams deducts that weight from its remaining stock automatically.
 
 ### File Storage (Docker / LAN)
 
@@ -267,6 +285,8 @@ Filament mm→grams (from Moonraker): `π × (0.0875 cm)² × (mm / 10) × densi
 | **Beta 10.2.9** | Clean startup log — readable messages for non-git installs and pre-release update checks; fixed garbled console title in launch.bat |
 | **Beta 10.2.10** | Instant first load — opens to 127.0.0.1 to skip Windows IPv6 delay; silent connection-close errors in console |
 | **Beta 10.3.0** | First-run onboarding wizard — storage → branding (name, logo, accent color) → Settings auto-opens; clean zero defaults for new installs |
+| **Beta 10.3.1** | Tax rate on invoices — configurable rate and label, applied as a line item on generated invoices |
+| **Beta 10.4.0** | Spoolman integration — optional spool picker in the FDM material modal that deducts logged grams from remaining stock; OctoPrint support — same Printer URL field now works with OctoPrint via `?apikey=...`, no extra setup; broadened slicer/material detection (PrusaSlicer, OrcaSlicer, Bambu Studio, Cura, SuperSlicer — 30+ material codes including carbon/glass-fiber blends) |
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 

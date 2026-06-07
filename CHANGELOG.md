@@ -4,6 +4,14 @@ All notable changes to AR Time Tracker are documented here.
 
 ---
 
+## Beta 10.4.0
+- **Spoolman integration** — optional connection to a self-hosted [Spoolman](https://github.com/Donkie/Spoolman) instance. Settings → Spoolman section with a URL field and "Test Connection" button (proxied server-side to dodge browser CORS, same approach as Moonraker). When connected, the FDM material modal shows a spool picker populated with each spool's name, vendor, and remaining weight — selecting one and logging filament grams automatically deducts that weight from the spool via Spoolman's API. Linked spool appears as a 🧵 tag in the session log. Fully optional — hidden entirely until configured.
+- **OctoPrint support** — Moonraker and OctoPrint are now both supported through the same single Printer URL field, with no extra "printer type" picker to fuss with. Append `?apikey=YOUR_KEY` to a printer's URL (OctoPrint's own documented way of passing an API key) and the server auto-detects it as an OctoPrint instance, polling `/api/job` instead of Moonraker's `print_stats`. Everything else — auto punch-in/out, status cards, multi-printer support — works identically regardless of which backend a printer runs.
+- **Broadened slicer/material detection** — the filename fallback now recognizes 30+ material codes spanning PrusaSlicer, OrcaSlicer, Bambu Studio, Cura, SuperSlicer and others, including carbon/glass-fiber and engineering blends (PA6-CF, PA6-GF, PA12-CF, PAHT-CF, ABS-GF, PC-FR, PEKK, and more).
+
+## Beta 10.3.1
+- **Tax rate on invoices** — configurable tax rate and label in Settings, applied as a line item on generated invoices.
+
 ## Beta 10.2.10
 - **Instant first load** — browser now opens to `http://127.0.0.1:5757` instead of `localhost`, bypassing the Windows IPv6-first DNS lookup that caused a multi-second delay on every cold start.
 - **Silent connection errors** — WinError 10053 / BrokenPipe / ConnectionReset tracebacks no longer flood the console; suppressed at the server level via a custom `handle_error` override.

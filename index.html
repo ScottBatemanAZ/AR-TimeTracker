@@ -495,7 +495,7 @@
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
       <span>
         <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
-        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.3.1</span>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.4.0</span>
         <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
       </span>
     </footer>
@@ -805,6 +805,10 @@
           <input type="number" id="matGrams" step="0.01" min="0" placeholder="0.00" oninput="updateFdmPreview()" />
         </div>
       </div>
+      <div class="form-row" id="matSpoolRow" style="display:none;margin-top:10px;margin-bottom:0;">
+        <label class="form-label">Spoolman Spool <span style="color:var(--dim);font-weight:400;">(optional — deducts grams on save)</span></label>
+        <select id="matSpoolmanSpool"></select>
+      </div>
       <div class="form-hint" id="matMoonrakerHint" style="margin-top:4px;color:var(--green-bright);display:none;"></div>
       <div class="form-hint preview" id="fdmCostPreview"></div>
       <div class="form-hint" id="matMachineHint" style="margin-top:4px;"></div>
@@ -955,27 +959,47 @@
     </div>
 
     <div class="settings-section">FDM Printers</div>
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">
+      Works with Moonraker (Klipper) or OctoPrint — just paste the printer's URL. For OctoPrint,
+      append your API key as a query string: <code>http://192.168.0.xx?apikey=YOUR_KEY</code>
+      (find it in OctoPrint → Settings → API).
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1.5fr 62px 24px;gap:8px;margin-bottom:4px;">
-      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span class="col-header">⚡ Watts</span><span></span>
+      <span class="col-header">Name</span><span class="col-header">Printer URL</span><span class="col-header">⚡ Watts</span><span></span>
     </div>
     <div class="type-list" id="fdmPrintersList"></div>
     <div class="type-add-row printer-add" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <input type="text" id="newFdmPrinterName" placeholder="e.g. Neptune 4 Max" />
-      <input type="text" id="newFdmPrinterUrl"  placeholder="http://192.168.0.xx" />
+      <input type="text" id="newFdmPrinterUrl"  placeholder="http://192.168.0.xx (or ?apikey=... for OctoPrint)" />
       <input type="number" id="newFdmPrinterWatts" placeholder="W" min="0" step="10" />
       <button class="type-add-btn" onclick="addFdmPrinter()">+</button>
     </div>
 
     <div class="settings-section">Resin Printers</div>
     <div style="display:grid;grid-template-columns:1fr 1.5fr 62px 24px;gap:8px;margin-bottom:4px;">
-      <span class="col-header">Name</span><span class="col-header">Moonraker URL</span><span class="col-header">⚡ Watts</span><span></span>
+      <span class="col-header">Name</span><span class="col-header">Printer URL</span><span class="col-header">⚡ Watts</span><span></span>
     </div>
     <div class="type-list" id="resinPrintersList"></div>
     <div class="type-add-row printer-add" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <input type="text" id="newResinPrinterName" placeholder="e.g. Mars 4 Ultra" />
-      <input type="text" id="newResinPrinterUrl"  placeholder="http://192.168.0.xx" />
+      <input type="text" id="newResinPrinterUrl"  placeholder="http://192.168.0.xx (or ?apikey=... for OctoPrint)" />
       <input type="number" id="newResinPrinterWatts" placeholder="W" min="0" step="10" />
       <button class="type-add-btn" onclick="addResinPrinter()">+</button>
+    </div>
+
+    <div class="settings-section">Spoolman <span style="color:var(--dim);font-weight:400;">(optional — filament spool tracking)</span></div>
+    <div class="form-row-2" style="align-items:end;">
+      <div class="form-row" style="margin-bottom:0;">
+        <label class="form-label">Server URL</label>
+        <input type="text" id="setSpoolmanUrl" placeholder="http://192.168.0.xx:7912" oninput="resetSpoolmanTestResult()" />
+      </div>
+      <button class="btn" onclick="testSpoolmanConnection()" style="height:30px;">Test Connection</button>
+    </div>
+    <div class="form-hint" id="spoolmanTestResult" style="margin-bottom:8px;"></div>
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:14px;">
+      When connected, FDM sessions can be linked to a Spoolman spool — logging filament grams
+      automatically deducts from its remaining weight.
+      Don't have Spoolman? <a href="https://github.com/Donkie/Spoolman" target="_blank" style="color:var(--blue-bright);">Set it up on GitHub →</a>
     </div>
 
     <div class="settings-section">Storage</div>
@@ -997,6 +1021,7 @@ const DEFAULT_SETTINGS = {
   laborRate: 0, fdmRate: 0, resinRate: 0, electricityRate: 0, taxRate: 0, taxLabel: 'Sales Tax', showEstimates: false,
   fdmPrinters:   [],
   resinPrinters: [],
+  spoolman: { url: '' },
   branding: { businessName: '', logoDataUrl: '', accentColor: '' },
   setupComplete: false,
   filamentTypes: [
@@ -1038,6 +1063,7 @@ function loadSettings() {
       if (!settings.filamentTypes) settings.filamentTypes = DEFAULT_SETTINGS.filamentTypes;
       if (!settings.fdmPrinters)   settings.fdmPrinters   = [];
       if (!settings.resinPrinters) settings.resinPrinters = [];
+      if (!settings.spoolman)      settings.spoolman = { url: '' };
       if (!settings.branding)      settings.branding = { ...DEFAULT_SETTINGS.branding };
       // migrate old string-based resinTypes
       if (!settings.resinTypes || !settings.resinTypes.length) {
@@ -1084,6 +1110,8 @@ function openSettings() {
   document.getElementById('setTaxRate').value          = settings.taxRate ?? 0;
   document.getElementById('setTaxLabel').value         = settings.taxLabel ?? 'Sales Tax';
   document.getElementById('setShowEstimates').checked = !!settings.showEstimates;
+  document.getElementById('setSpoolmanUrl').value = (settings.spoolman||{}).url || '';
+  resetSpoolmanTestResult();
   renderFilamentTypesList();
   renderResinTypesList();
   renderFdmPrintersList();
@@ -1158,6 +1186,22 @@ function addResinPrinter() {
   document.getElementById('newResinPrinterWatts').value='';
   renderResinPrintersList();
 }
+function resetSpoolmanTestResult() {
+  const el = document.getElementById('spoolmanTestResult');
+  if (el) { el.textContent = ''; el.style.color = ''; }
+}
+async function testSpoolmanConnection() {
+  const url = document.getElementById('setSpoolmanUrl').value.trim();
+  const el  = document.getElementById('spoolmanTestResult');
+  if (!url) { el.textContent = 'Enter a URL first.'; el.style.color = 'var(--muted)'; return; }
+  el.textContent = 'Checking…'; el.style.color = 'var(--muted)';
+  try {
+    const res = await fetch('/spoolman/check', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url})});
+    const j = await res.json();
+    if (j.ok) { el.textContent = '✓ Connected' + (j.version ? ' — Spoolman v'+j.version : ''); el.style.color = 'var(--green-bright)'; }
+    else      { el.textContent = '✕ Could not connect — check the URL and that Spoolman is running'; el.style.color = 'var(--red)'; }
+  } catch { el.textContent = '✕ Could not reach the server'; el.style.color = 'var(--red)'; }
+}
 function renderFilamentTypesList() {
   const el = document.getElementById('filamentTypesList');
   if (!settings.filamentTypes.length) { el.innerHTML='<div class="empty-state">None defined.</div>'; return; }
@@ -1221,6 +1265,7 @@ function saveSettingsModal() {
   settings.taxRate         = n('setTaxRate',         0);
   settings.taxLabel        = document.getElementById('setTaxLabel').value.trim() || 'Sales Tax';
   settings.showEstimates   = document.getElementById('setShowEstimates').checked;
+  settings.spoolman        = { url: document.getElementById('setSpoolmanUrl').value.trim() };
   persistSettings();
   fetch('/update-printers', {
     method: 'POST',
@@ -1676,13 +1721,14 @@ function renderSessions(type) {
     const isLivePrint = active && type === 'fdm' && s.auto;
     const liveBadge   = isLivePrint ? '<div class="session-live-badge">▶ Print in Progress</div>' : '';
     const noteHtml = s.note ? `<div class="session-note">${esc(s.note)}</div>` : '';
+    const spoolHtml = s.spoolmanSpoolName ? `<div class="session-note" style="color:var(--green-bright);">🧵 ${esc(s.spoolmanSpoolName)}</div>` : '';
     return `<div class="session-entry${isLivePrint?' session-entry-live':''}${s.failed?' session-entry-failed':''}">
     ${liveBadge}<div class="session-row">
       <div class="session-time">${active?'● ':''} ${fmtDT(s.start)}${s.end?' → '+fmtDT(s.end):'(active)'}${manTag}${failTag}</div>
       <div class="session-dur">${active?'running':fmt(ms)}</div>
       ${billHtml}
       <button class="session-delete" onclick="deleteSession('${type}',${i})">✕</button>
-    </div>${matHtml}${noteHtml}</div>`;
+    </div>${matHtml}${spoolHtml}${noteHtml}</div>`;
   }).join('');
 }
 function renderReceipts() {
@@ -1970,6 +2016,29 @@ function onFilamentTypeChange() {
   updateFdmPreview();
 }
 
+async function loadSpoolmanSpools(selectedId) {
+  const row = document.getElementById('matSpoolRow');
+  const sel = document.getElementById('matSpoolmanSpool');
+  if (!row || !sel) return;
+  row.style.display = 'none';
+  sel.innerHTML = '<option value="">— none —</option>';
+  const url = (settings.spoolman||{}).url || '';
+  if (!url) return;
+  try {
+    const res = await fetch('/spoolman/spools', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url})});
+    const j = await res.json();
+    if (!j.ok || !j.spools || !j.spools.length) return;
+    j.spools.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      const label = [s.vendor, s.name].filter(Boolean).join(' ') || ('Spool #'+s.id);
+      opt.textContent = label + (s.remaining_weight!=null ? ' — '+Math.round(s.remaining_weight)+'g left' : '');
+      sel.appendChild(opt);
+    });
+    if (selectedId) sel.value = String(selectedId);
+    row.style.display = '';
+  } catch {}
+}
 function showMoonrakerHint(mm, density, grams) {
   const hint = document.getElementById('matMoonrakerHint');
   if (!hint) return;
@@ -2027,6 +2096,7 @@ function openMaterialModal(type,sessionIdx) {
       if (match) autoType = match.name;
     }
     buildFilamentSelect(autoType);
+    loadSpoolmanSpools(s.spoolmanSpoolId);
     const moonrakerHint = document.getElementById('matMoonrakerHint');
     if (moonrakerHint) moonrakerHint.style.display = 'none';
     if(autoType){const ft=settings.filamentTypes.find(f=>f.name===autoType); if(ft) document.getElementById('matFilamentCostPerKg').value=s.filamentCostPerKg||ft.costPerKg;}
@@ -2089,6 +2159,23 @@ function saveMaterial() {
     sessions[sessionIdx].filamentG=(!isNaN(g)&&g>=0)?g:0;
     sessions[sessionIdx].filamentCostPerKg=(!isNaN(cpkg)&&cpkg>0)?cpkg:0;
     sessions[sessionIdx].filamentType=typeName||'';
+    const spoolSel=document.getElementById('matSpoolmanSpool');
+    const spoolId=(spoolSel&&spoolSel.value)?parseInt(spoolSel.value):null;
+    if(spoolId){
+      sessions[sessionIdx].spoolmanSpoolId=spoolId;
+      sessions[sessionIdx].spoolmanSpoolName=spoolSel.options[spoolSel.selectedIndex].textContent;
+      // Deduct from the spool once — re-saving the same session (e.g. editing the note)
+      // shouldn't re-deduct grams that were already logged in Spoolman.
+      if(sessions[sessionIdx].filamentG>0 && !sessions[sessionIdx]._spoolmanLogged){
+        fetch('/spoolman/use',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({url:(settings.spoolman||{}).url, spoolId, grams:sessions[sessionIdx].filamentG})}).catch(()=>{});
+        sessions[sessionIdx]._spoolmanLogged=true;
+      }
+    } else {
+      delete sessions[sessionIdx].spoolmanSpoolId;
+      delete sessions[sessionIdx].spoolmanSpoolName;
+      delete sessions[sessionIdx]._spoolmanLogged;
+    }
   } else {
     const ml=parseFloat(document.getElementById('matResinMl').value);
     const cpkg=parseFloat(document.getElementById('matResinCostPerKg').value);
@@ -2850,7 +2937,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.3.1';
+const TRACKER_VERSION = 'Beta 10.4.0';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';
