@@ -25,8 +25,8 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 PORT = 5757
-SERVER_VERSION  = "1.5"
-TRACKER_VERSION = "Beta 10.4.0"
+SERVER_VERSION  = "1.6"
+TRACKER_VERSION = "Beta 10.4.1"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -239,7 +239,10 @@ def _split_printer_url(url):
     we're talking to OctoPrint rather than a (keyless) Moonraker instance, so
     no separate "printer type" setting is needed — just the one URL field.
     """
-    parsed  = urllib.parse.urlsplit((url or '').strip())
+    cleaned = (url or '').strip()
+    if cleaned and not re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', cleaned):
+        cleaned = f'http://{cleaned}'
+    parsed  = urllib.parse.urlsplit(cleaned)
     api_key = (urllib.parse.parse_qs(parsed.query).get('apikey') or [''])[0]
     base    = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip('/'), '', ''))
     return base, api_key
