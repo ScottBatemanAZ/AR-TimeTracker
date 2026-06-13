@@ -1,0 +1,52 @@
+{
+  "name": "ar-timetracker-electron",
+  "version": "10.6.0",
+  "description": "Native desktop wrapper around the Azazel's Razer Time Tracker server",
+  "author": "Azazel's Razer LLC",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:server": "node scripts/build-server.js",
+    "pack": "node scripts/build-server.js && electron-builder --dir",
+    "dist": "node scripts/build-server.js && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.azazelsrazer.timetracker",
+    "productName": "Azazel's Razer Time Tracker",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "assets/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/server",
+        "to": "server"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AR Time Tracker",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
+  }
+}

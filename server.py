@@ -24,9 +24,9 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-PORT = 5757
-SERVER_VERSION  = "1.7"
-TRACKER_VERSION = "Beta 10.5.0"
+PORT = int(os.environ.get('AR_PORT', '5757'))  # AR_PORT lets a launcher (e.g. Electron) pick a free port
+SERVER_VERSION  = "1.8"
+TRACKER_VERSION = "Beta 10.6.0"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -34,7 +34,13 @@ POLL_INTERVAL   = 5  # seconds
 # Writable user files (config, printers, data) must live next to the exe.
 IS_FROZEN  = getattr(sys, 'frozen', False)
 STATIC_DIR = sys._MEIPASS if IS_FROZEN else os.path.dirname(os.path.abspath(__file__))
-DATA_DIR   = os.path.dirname(sys.executable) if IS_FROZEN else STATIC_DIR
+DATA_DIR   = os.environ.get('AR_DATA_DIR') or (os.path.dirname(sys.executable) if IS_FROZEN else STATIC_DIR)
+if os.environ.get('AR_DATA_DIR'):
+    # Launcher (e.g. Electron) pointed writable files at a user-writable dir; ensure it exists.
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+    except OSError:
+        pass
 DIR        = STATIC_DIR   # kept for SimpleHTTPRequestHandler directory= arg
 
 # ── EARLY ERROR LOGGING ───────────────────────────────────────────────
@@ -1097,6 +1103,9 @@ def check_latest_release():
 
 def check_for_updates():
     """Git-based auto-update: fetch → pull → re-exec. Skipped in frozen/EXE mode."""
+    if os.environ.get('AR_NO_AUTOUPDATE'):
+        # Launcher owns the update/lifecycle (e.g. Electron wrapper) — don't self-restart.
+        return
     if IS_FROZEN:
         # EXE build — no git, no source to pull. Use check_latest_release() instead.
         threading.Thread(target=check_latest_release, daemon=True).start()
@@ -1126,7 +1135,15 @@ def check_for_updates():
         print("  New version found — pulling updates...", flush=True)
         subprocess.run(['git', 'pull'], cwd=DATA_DIR, check=True, timeout=30)
         print("  Restarting with updated code...\n", flush=True)
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        if os.name == 'nt':
+            # os.execv mangles arguments containing spaces on Windows (e.g. a script path
+            # under "R:\Azazel's Razer\..."), so the restart fails to find the script.
+            # Spawn a fresh, properly-quoted process and exit instead.
+            argv = [os.path.abspath(sys.argv[0])] + sys.argv[1:]
+            subprocess.Popen([sys.executable] + argv, cwd=os.getcwd())
+            sys.exit(0)
+        else:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
     except FileNotFoundError:
         print("  git not found — skipping auto-update", flush=True)
         threading.Thread(target=check_latest_release, daemon=True).start()
@@ -1148,6 +1165,34 @@ def open_browser():
         except OSError:
             time.sleep(0.25)
     webbrowser.open(f"http://127.0.0.1:{PORT}")
+
+def _pid_alive(pid):
+    """True if the given process is still running (cross-platform, stdlib only)."""
+    if os.name == 'nt':
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.windll.kernel32
+        h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        kernel32.CloseHandle(h)
+        return bool(ok) and code.value == STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+def watch_parent(ppid):
+    """If launched by a parent (e.g. Electron via AR_PARENT_PID), exit when it dies.
+    Prevents an orphaned server holding the port if the parent is force-killed/crashes."""
+    while True:
+        time.sleep(3)
+        if not _pid_alive(ppid):
+            os._exit(0)
 
 def shutdown(sig, frame):
     print("\n  Server stopped.")
@@ -1214,7 +1259,10 @@ print(f"  Polling every {POLL_INTERVAL}s  |  Press Ctrl+C to stop\n")
 try:
     socketserver.TCPServer.allow_reuse_address = True
     threading.Thread(target=poll_all_printers, daemon=True).start()
-    if not os.environ.get('DOCKER'):
+    _ppid = os.environ.get('AR_PARENT_PID')
+    if _ppid and _ppid.isdigit():
+        threading.Thread(target=watch_parent, args=(int(_ppid),), daemon=True).start()
+    if not os.environ.get('DOCKER') and not os.environ.get('AR_NO_BROWSER'):
         threading.Thread(target=open_browser, daemon=True).start()
 
     with QuietTCPServer(("", PORT), Handler) as httpd:

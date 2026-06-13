@@ -495,7 +495,7 @@
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
       <span>
         <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
-        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.5.0</span>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.6.0</span>
         <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
       </span>
     </footer>
@@ -1014,6 +1014,14 @@
       <button onclick="reconfigureStorage()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border2);color:var(--dim);border-radius:3px;padding:3px 9px;cursor:pointer;letter-spacing:.05em;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--dim)'">Reconfigure…</button>
     </div>
 
+    <div id="desktopAppSection" style="display:none;">
+      <div class="settings-section">Desktop App</div>
+      <label style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px;font-family:var(--mono);font-size:10.5px;cursor:pointer;">
+        <span style="color:var(--muted);">Launch automatically when I sign in</span>
+        <input type="checkbox" id="settingsAutoLaunch" onchange="toggleAutoLaunch(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+      </label>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
       <button class="btn-create" onclick="saveSettingsModal()">Save Settings</button>
@@ -1058,6 +1066,25 @@ let editingId = null;
 let pendingMaterial = null;
 let manualType = null;
 const exportBillToCache = {}; // keyed by project ID
+
+// ── ELECTRON BRIDGE ───────────────────────────────────────────────────
+// All no-ops in the browser/Docker app (window.electronAPI is undefined there).
+const isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+function arNotify(title, body) {
+  if (isElectron) { try { window.electronAPI.notify(title, body); } catch (e) {} }
+}
+function arTrayStatus() {
+  if (!isElectron) return;
+  let active = 0;
+  (data.projects || []).forEach(p => ['design','fdm','resin'].forEach(t => {
+    if ((p[t+'Sessions'] || []).some(s => !s.end)) active++;
+  }));
+  const badge = document.getElementById('topbarCost');
+  const costTxt = (badge && badge.style.display !== 'none') ? badge.textContent : '';
+  let text = "Azazel's Razer Time Tracker";
+  if (active > 0) text = `${active} active session${active > 1 ? 's' : ''}` + (costTxt ? ` · ${costTxt}` : '');
+  try { window.electronAPI.setStatus(text); } catch (e) {}
+}
 
 // ── SETTINGS ──────────────────────────────────────────────────────────
 function loadSettings() {
@@ -1126,7 +1153,20 @@ function openSettings() {
   populateResinLibraryPicker();
   const modeLabel = storageMode === 'file' ? '📁 File (server)' : '🌐 Browser (localStorage)';
   document.getElementById('settingsStorageMode').textContent = modeLabel;
+  // Desktop App section — only meaningful inside the Electron wrapper.
+  if (isElectron) {
+    document.getElementById('desktopAppSection').style.display = '';
+    window.electronAPI.getAutoLaunch().then(on => {
+      document.getElementById('settingsAutoLaunch').checked = !!on;
+    }).catch(()=>{});
+  }
   document.getElementById('settingsModal').classList.add('open');
+}
+function toggleAutoLaunch(enabled) {
+  if (!isElectron) return;
+  window.electronAPI.setAutoLaunch(enabled).then(state => {
+    document.getElementById('settingsAutoLaunch').checked = !!state;
+  }).catch(()=>{});
 }
 function reconfigureStorage() {
   closeModal('settingsModal');
@@ -1679,6 +1719,7 @@ function updateLiveStats() {
       el.textContent=s?fmt(Date.now()-s.start):'';
     });
   });
+  arTrayStatus();
 }
 function renderSessions(type) {
   const p=activeProject, sessions=(p[type+'Sessions']||[]).slice().reverse();
@@ -2715,6 +2756,7 @@ function openResinSources() {
 // ── MOONRAKER POLLING ─────────────────────────────────────────────────
 const prevPrinterStatuses  = {};  // {printerId: last known status}
 const printerUnreachCounts = {};  // {printerId: consecutive unreachable count}
+const printerOfflineNotified = {};  // {printerId: offline notification already fired}
 let liveFilamentType = '';        // latest from Moonraker metadata (first FDM printer)
 
 function isClockedInFor(proj, type, printerId) {
@@ -2742,8 +2784,14 @@ function processPrinterState(type, printer, ps) {
   if (!ps) { printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1; return; }
   const { status, reachable, print_duration, filament_used, filament_type, filament_name, estimated_time } = ps;
 
-  if (reachable) printerUnreachCounts[pid] = 0;
-  else           printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1;
+  if (reachable) { printerUnreachCounts[pid] = 0; printerOfflineNotified[pid] = false; }
+  else {
+    printerUnreachCounts[pid] = (printerUnreachCounts[pid]||0)+1;
+    if (printerUnreachCounts[pid] === 12 && !printerOfflineNotified[pid]) {
+      printerOfflineNotified[pid] = true;
+      arNotify('Printer unreachable', `${printer.name} is offline`);
+    }
+  }
 
   // Update per-card dot
   const dotEl = document.getElementById('pcard-dot-'+pid);
@@ -2795,6 +2843,8 @@ function processPrinterState(type, printer, ps) {
     if (idx>=0) {
       sessions[idx].end = Date.now();
       if (type==='fdm'&&filament_used>0) sessions[idx].filamentUsedMm=filament_used;
+      const hrs=((sessions[idx].end-sessions[idx].start)/3600000).toFixed(2);
+      arNotify(`${printer.name} — print finished`, `${type.toUpperCase()} session ended · ${hrs}h logged`);
       saveData();
       if (!hasAnyActive(activeProject)) clearInterval(timerInterval);
       renderClock(type); updateLiveStats(); renderSessions(type); renderSidebar();
@@ -2947,7 +2997,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.5.0';
+const TRACKER_VERSION = 'Beta 10.6.0';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';

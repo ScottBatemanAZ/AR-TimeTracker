@@ -13,3 +13,9 @@ patch.py
 .vscode/
 .claude/
 CLAUDE.md
+electron/node_modules/
+electron/dist/
+electron/resources/server/
+# PyInstaller artifacts (root-level only — keep electron/build/ which holds the installer icon)
+/build/
+/dist/
