@@ -495,7 +495,7 @@
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
       <span>
         <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
-        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.4.1</span>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.5.0</span>
         <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
       </span>
     </footer>
@@ -529,8 +529,14 @@
       <button class="btn" onclick="closeModal('exportModal')">Cancel</button>
       <button class="btn-create" onclick="generateInvoice(false)">Invoice — Actual</button>
       <button class="btn-create" style="background:rgba(226,75,74,.08);border-color:rgba(226,75,74,.5);" onclick="generateInvoice(true)">Invoice — + Markup</button>
-      <button class="btn-create" style="background:rgba(93,202,165,.08);border-color:rgba(93,202,165,.5);color:var(--green-bright);" onclick="exportTrackingLog()">Tracking Log (.ods)</button>
-      <button class="btn-create" style="background:rgba(93,202,165,.04);border-color:rgba(93,202,165,.3);color:var(--green-bright);opacity:.85;" onclick="exportCsv()">Tracking Log (.csv)</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="exportTrackingFormat" style="font-family:var(--mono);font-size:11px;background:rgba(93,202,165,.04);border:1px solid rgba(93,202,165,.3);color:var(--green-bright);border-radius:4px;padding:7px 6px;cursor:pointer;">
+          <option value="ods">.ods</option>
+          <option value="xlsx">.xlsx</option>
+          <option value="csv">.csv</option>
+        </select>
+        <button class="btn-create" style="background:rgba(93,202,165,.08);border-color:rgba(93,202,165,.5);color:var(--green-bright);" onclick="exportTrackingLog()">Tracking Log</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2506,13 +2512,17 @@ function generateInvoice(withMarkup) {
   win.document.close();
 }
 
-// ── ODS EXPORT ───────────────────────────────────────────────────────
+// ── TRACKING LOG EXPORT ──────────────────────────────────────────────
 async function exportTrackingLog() {
   if (!activeProject) return;
   exportBillToCache[activeProject.id] = document.getElementById('exportBillTo').value.trim();
+  const format = document.getElementById('exportTrackingFormat').value;
+  if (format === 'csv') { exportCsv(); return; }
+
   const markupPct = parseFloat(document.getElementById('exportMarkupPct').value) || 3;
+  const endpoint  = format === 'xlsx' ? '/generate-xlsx' : '/generate-ods';
   try {
-    const res = await fetch('/generate-ods', {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project: activeProject, settings, markupPct })
@@ -2523,12 +2533,12 @@ async function exportTrackingLog() {
     const a    = document.createElement('a');
     a.href     = url;
     const safe = activeProject.name.replace(/[^A-Za-z0-9_-]/g, '_');
-    a.download = `AR-TrackingLog-${safe}.ods`;
+    a.download = `AR-TrackingLog-${safe}.${format}`;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert('ODS export failed: ' + e.message + '\n\nMake sure the server is running.');
+    alert(format.toUpperCase() + ' export failed: ' + e.message + '\n\nMake sure the server is running.');
   }
 }
 
@@ -2937,7 +2947,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.4.1';
+const TRACKER_VERSION = 'Beta 10.5.0';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';

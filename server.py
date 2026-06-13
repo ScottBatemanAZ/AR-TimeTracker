@@ -25,8 +25,8 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 PORT = 5757
-SERVER_VERSION  = "1.6"
-TRACKER_VERSION = "Beta 10.4.1"
+SERVER_VERSION  = "1.7"
+TRACKER_VERSION = "Beta 10.5.0"
 POLL_INTERVAL   = 5  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
@@ -354,9 +354,17 @@ def spoolman_call(base_url, path, method='GET', body=None, timeout=8):
     raw     = urllib.request.urlopen(req, timeout=timeout).read().decode()
     return json.loads(raw) if raw else {}
 
-# ── ODS GENERATOR ────────────────────────────────────────────────────
-def generate_ods(payload):
-    """Build a 5-tab ODS spreadsheet from project+settings data. Returns bytes."""
+# ── TRACKING LOG DATA MODEL ───────────────────────────────────────────
+# Generic cell tuples shared by the ODS and XLSX renderers below.
+#   kind: 'text' | 'num' | 'currency'        style: '' | 'B' (bold) | 'H' (header)
+def _t(v, sty=''): return ('text', v, sty)
+def _n(v, sty=''): return ('num', v, sty)
+def _c(v, sty=''): return ('currency', v, sty)
+def _row(*cells):  return list(cells)
+def _blank():      return [_t('')]
+
+def build_tracking_log(payload):
+    """Compute the 5-tab tracking log dataset shared by ODS and XLSX export."""
     proj       = payload.get('project', {})
     sett       = payload.get('settings', {})
     markup_pct = float(payload.get('markupPct', 3))
@@ -369,9 +377,6 @@ def generate_ods(payload):
     proj_name  = proj.get('name', 'Project')
 
     # ── helpers ───────────────────────────────────────────────────────────
-    def xe(s):
-        return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
-
     def ts_date(ts):  return datetime.fromtimestamp(int(ts)/1000).strftime('%Y-%m-%d')
     def ts_time(ts):  return datetime.fromtimestamp(int(ts)/1000).strftime('%H:%M')
 
@@ -396,41 +401,16 @@ def generate_ods(payload):
         ms    = int(s.get('end', s.get('start', 0))) - int(s.get('start', 0))
         return ms_hrs(ms) * (watt / 1000) * elec_rate
 
-    # ── cell / row / sheet builders ───────────────────────────────────────
-    def sc(v, sty=''):
-        sa = f' table:style-name="{sty}"' if sty else ''
-        if v is None or str(v).strip() == '':
-            return f'<table:table-cell{sa}/>'
-        return f'<table:table-cell office:value-type="string"{sa}><text:p>{xe(str(v))}</text:p></table:table-cell>'
-
-    def nc(v, dec=2, sty=''):
-        sa = f' table:style-name="{sty}"' if sty else ''
-        try:    fv = float(v)
-        except: return f'<table:table-cell{sa}/>'
-        return f'<table:table-cell office:value-type="float" office:value="{fv}"{sa}><text:p>{fv:.{dec}f}</text:p></table:table-cell>'
-
-    def cc(v, sty=''):
-        sa = f' table:style-name="{sty}"' if sty else ''
-        try:    fv = float(v)
-        except: return f'<table:table-cell{sa}/>'
-        return f'<table:table-cell office:value-type="currency" office:currency="USD" office:value="{fv}"{sa}><text:p>${fv:.2f}</text:p></table:table-cell>'
-
-    def row(*cells):   return '<table:table-row>' + ''.join(cells) + '</table:table-row>'
-    def blank():       return '<table:table-row><table:table-cell/></table:table-row>'
-    def mksheet(name, rows, ncols=11):
-        cols = f'<table:table-column table:style-name="CO" table:number-columns-repeated="{ncols}"/>'
-        return f'<table:table table:name="{xe(name)}">{cols}{"".join(rows)}</table:table>'
-
     B, H = 'B', 'H'   # bold, header style shorthand
 
     # ── DESIGN tab ────────────────────────────────────────────────────────
     d_sess = sorted([s for s in (proj.get('designSessions') or []) if s.get('end')],
                     key=lambda s: s.get('start', 0))
     d_rows = [
-        row(sc(f'Design Time — {proj_name}', B)),
-        row(sc(f'Labor Rate: ${labor_rate:.2f}/hr')),
-        blank(),
-        row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Subtype',H), sc('Cost',H), sc('Note',H)),
+        _row(_t(f'Design Time — {proj_name}', B)),
+        _row(_t(f'Labor Rate: ${labor_rate:.2f}/hr')),
+        _blank(),
+        _row(_t('Date',H), _t('Start',H), _t('End',H), _t('Duration',H), _t('Subtype',H), _t('Cost',H), _t('Note',H)),
     ]
     d_ms = 0; sub_tots = {}
     for s in d_sess:
@@ -441,24 +421,24 @@ def generate_ods(payload):
         d_ms += ms
         sub_tots.setdefault(sub, {'ms':0,'cost':0.0})
         sub_tots[sub]['ms'] += ms; sub_tots[sub]['cost'] += cost
-        d_rows.append(row(sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
-                          sc(ms_hm(ms)), sc(sub), cc(cost), sc(note)))
-    d_rows += [blank(), row(sc('Subtotals by Type', B)),
-               row(sc('Subtype',H), sc('',H), sc('',H), sc('Duration',H), sc('',H), sc('Cost',H))]
+        d_rows.append(_row(_t(ts_date(s['start'])), _t(ts_time(s['start'])), _t(ts_time(s['end'])),
+                          _t(ms_hm(ms)), _t(sub), _c(cost), _t(note)))
+    d_rows += [_blank(), _row(_t('Subtotals by Type', B)),
+               _row(_t('Subtype',H), _t('',H), _t('',H), _t('Duration',H), _t('',H), _t('Cost',H))]
     for sub, t in sub_tots.items():
-        d_rows.append(row(sc(sub), sc(''), sc(''), sc(ms_hm(t['ms'])), sc(''), cc(t['cost'])))
-    d_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(d_ms),B), sc(''), cc(ms_hrs(d_ms)*labor_rate, B)))
+        d_rows.append(_row(_t(sub), _t(''), _t(''), _t(ms_hm(t['ms'])), _t(''), _c(t['cost'])))
+    d_rows.append(_row(_t('Total',B), _t(''), _t(''), _t(ms_hm(d_ms),B), _t(''), _c(ms_hrs(d_ms)*labor_rate, B)))
     design_total = ms_hrs(d_ms) * labor_rate
 
     # ── FDM tab ───────────────────────────────────────────────────────────
     f_sess = sorted([s for s in (proj.get('fdmSessions') or []) if s.get('end')],
                     key=lambda s: s.get('start', 0))
     f_rows = [
-        row(sc(f'FDM Sessions — {proj_name}', B)),
-        row(sc(f'Machine Rate: ${fdm_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
-        blank(),
-        row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Material',H),
-            sc('Grams',H), sc('$/kg',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H), sc('Note',H)),
+        _row(_t(f'FDM Sessions — {proj_name}', B)),
+        _row(_t(f'Machine Rate: ${fdm_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
+        _blank(),
+        _row(_t('Date',H), _t('Start',H), _t('End',H), _t('Duration',H), _t('Material',H),
+            _t('Grams',H), _t('$/kg',H), _t('Fil. Cost',H), _t('Machine Cost',H), _t('Elec. Cost',H), _t('Total',H), _t('Note',H)),
     ]
     f_ms = 0; f_fil = 0.0; f_mach = 0.0; f_g = 0.0; f_elec = 0.0; f_mat_tots = {}
     f_failed_cost = 0.0
@@ -473,31 +453,31 @@ def generate_ods(payload):
         f_mat_tots.setdefault(mat, {'ms':0,'g':0.0,'fil':0.0,'mach':0.0,'elec':0.0})
         f_mat_tots[mat]['ms'] += ms; f_mat_tots[mat]['g'] += g
         f_mat_tots[mat]['fil'] += fc; f_mat_tots[mat]['mach'] += mach; f_mat_tots[mat]['elec'] += ec
-        f_rows.append(row(
-            sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
-            sc(ms_hm(ms)), sc(mat),
-            nc(g,2) if g else sc('—'), nc(cpkg,2) if cpkg else sc('—'),
-            cc(fc) if fc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(fc+mach+ec),
-            sc(s.get('note') or '')))
-    f_rows += [blank(), row(sc('Subtotals by Material', B)),
-               row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('Grams',H),
-                   sc('',H), sc('',H), sc('Fil. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H))]
+        f_rows.append(_row(
+            _t(ts_date(s['start'])), _t(ts_time(s['start'])), _t(ts_time(s['end'])),
+            _t(ms_hm(ms)), _t(mat),
+            _n(g) if g else _t('—'), _n(cpkg) if cpkg else _t('—'),
+            _c(fc) if fc else _t('—'), _c(mach), _c(ec) if ec else _t('—'), _c(fc+mach+ec),
+            _t(s.get('note') or '')))
+    f_rows += [_blank(), _row(_t('Subtotals by Material', B)),
+               _row(_t('Material',H), _t('',H), _t('',H), _t('Duration',H), _t('Grams',H),
+                   _t('',H), _t('',H), _t('Fil. Cost',H), _t('Machine Cost',H), _t('Elec. Cost',H), _t('Total',H))]
     for mat, t in f_mat_tots.items():
-        f_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['g'],2),
-                          sc(''), sc(''), cc(t['fil']), cc(t['mach']), cc(t['elec']), cc(t['fil']+t['mach']+t['elec'])))
-    f_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(f_ms),B), nc(f_g,2,B),
-                      sc(''), sc(''), cc(f_fil,B), cc(f_mach,B), cc(f_elec,B), cc(f_fil+f_mach+f_elec,B)))
+        f_rows.append(_row(_t(mat), _t(''), _t(''), _t(ms_hm(t['ms'])), _n(t['g']),
+                          _t(''), _t(''), _c(t['fil']), _c(t['mach']), _c(t['elec']), _c(t['fil']+t['mach']+t['elec'])))
+    f_rows.append(_row(_t('Total',B), _t(''), _t(''), _t(ms_hm(f_ms),B), _n(f_g,B),
+                      _t(''), _t(''), _c(f_fil,B), _c(f_mach,B), _c(f_elec,B), _c(f_fil+f_mach+f_elec,B)))
     fdm_total = f_fil + f_mach + f_elec
 
     # ── RESIN tab ─────────────────────────────────────────────────────────
     r_sess = sorted([s for s in (proj.get('resinSessions') or []) if s.get('end')],
                     key=lambda s: s.get('start', 0))
     r_rows = [
-        row(sc(f'Resin Sessions — {proj_name}', B)),
-        row(sc(f'Machine Rate: ${resin_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
-        blank(),
-        row(sc('Date',H), sc('Start',H), sc('End',H), sc('Duration',H), sc('Material',H),
-            sc('mL',H), sc('$/kg',H), sc('Density',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H), sc('Note',H)),
+        _row(_t(f'Resin Sessions — {proj_name}', B)),
+        _row(_t(f'Machine Rate: ${resin_rate:.2f}/hr  |  Electricity: ${elec_rate:.3f}/kWh')),
+        _blank(),
+        _row(_t('Date',H), _t('Start',H), _t('End',H), _t('Duration',H), _t('Material',H),
+            _t('mL',H), _t('$/kg',H), _t('Density',H), _t('Mat. Cost',H), _t('Machine Cost',H), _t('Elec. Cost',H), _t('Total',H), _t('Note',H)),
     ]
     r_ms = 0; r_mat = 0.0; r_mach = 0.0; r_ml = 0.0; r_elec = 0.0; r_mat_tots = {}
     r_failed_cost = 0.0
@@ -512,36 +492,36 @@ def generate_ods(payload):
         r_mat_tots.setdefault(mat, {'ms':0,'ml':0.0,'mat':0.0,'mach':0.0,'elec':0.0})
         r_mat_tots[mat]['ms'] += ms; r_mat_tots[mat]['ml'] += ml
         r_mat_tots[mat]['mat'] += rc; r_mat_tots[mat]['mach'] += mach; r_mat_tots[mat]['elec'] += ec
-        r_rows.append(row(
-            sc(ts_date(s['start'])), sc(ts_time(s['start'])), sc(ts_time(s['end'])),
-            sc(ms_hm(ms)), sc(mat),
-            nc(ml,2) if ml else sc('—'), nc(cpkg,2) if cpkg else sc('—'), nc(dens,2),
-            cc(rc) if rc else sc('—'), cc(mach), cc(ec) if ec else sc('—'), cc(rc+mach+ec),
-            sc(s.get('note') or '')))
-    r_rows += [blank(), row(sc('Subtotals by Material', B)),
-               row(sc('Material',H), sc('',H), sc('',H), sc('Duration',H), sc('mL',H),
-                   sc('',H), sc('',H), sc('',H), sc('Mat. Cost',H), sc('Machine Cost',H), sc('Elec. Cost',H), sc('Total',H))]
+        r_rows.append(_row(
+            _t(ts_date(s['start'])), _t(ts_time(s['start'])), _t(ts_time(s['end'])),
+            _t(ms_hm(ms)), _t(mat),
+            _n(ml) if ml else _t('—'), _n(cpkg) if cpkg else _t('—'), _n(dens),
+            _c(rc) if rc else _t('—'), _c(mach), _c(ec) if ec else _t('—'), _c(rc+mach+ec),
+            _t(s.get('note') or '')))
+    r_rows += [_blank(), _row(_t('Subtotals by Material', B)),
+               _row(_t('Material',H), _t('',H), _t('',H), _t('Duration',H), _t('mL',H),
+                   _t('',H), _t('',H), _t('',H), _t('Mat. Cost',H), _t('Machine Cost',H), _t('Elec. Cost',H), _t('Total',H))]
     for mat, t in r_mat_tots.items():
-        r_rows.append(row(sc(mat), sc(''), sc(''), sc(ms_hm(t['ms'])), nc(t['ml'],2),
-                          sc(''), sc(''), sc(''), cc(t['mat']), cc(t['mach']), cc(t['elec']), cc(t['mat']+t['mach']+t['elec'])))
-    r_rows.append(row(sc('Total',B), sc(''), sc(''), sc(ms_hm(r_ms),B), nc(r_ml,2,B),
-                      sc(''), sc(''), sc(''), cc(r_mat,B), cc(r_mach,B), cc(r_elec,B), cc(r_mat+r_mach+r_elec,B)))
+        r_rows.append(_row(_t(mat), _t(''), _t(''), _t(ms_hm(t['ms'])), _n(t['ml']),
+                          _t(''), _t(''), _t(''), _c(t['mat']), _c(t['mach']), _c(t['elec']), _c(t['mat']+t['mach']+t['elec'])))
+    r_rows.append(_row(_t('Total',B), _t(''), _t(''), _t(ms_hm(r_ms),B), _n(r_ml,B),
+                      _t(''), _t(''), _t(''), _c(r_mat,B), _c(r_mach,B), _c(r_elec,B), _c(r_mat+r_mach+r_elec,B)))
     resin_total = r_mat + r_mach + r_elec
 
     # ── RECEIPTS tab ──────────────────────────────────────────────────────
     receipts = proj.get('receipts') or []
     rec_rows = [
-        row(sc(f'Receipts / Expenses — {proj_name}', B)),
-        blank(),
-        row(sc('Description',H), sc('Amount',H)),
+        _row(_t(f'Receipts / Expenses — {proj_name}', B)),
+        _blank(),
+        _row(_t('Description',H), _t('Amount',H)),
     ]
     rec_total = 0.0
     for r_ in receipts:
         amt = float(r_.get('amount') or 0); rec_total += amt
-        rec_rows.append(row(sc(r_.get('desc','')), cc(amt)))
+        rec_rows.append(_row(_t(r_.get('desc','')), _c(amt)))
     if not receipts:
-        rec_rows.append(row(sc('No receipts recorded.')))
-    rec_rows += [blank(), row(sc('Total',B), cc(rec_total,B))]
+        rec_rows.append(_row(_t('No receipts recorded.')))
+    rec_rows += [_blank(), _row(_t('Total',B), _c(rec_total,B))]
 
     # ── SUMMARY tab ───────────────────────────────────────────────────────
     actual      = design_total + fdm_total + resin_total + rec_total
@@ -549,32 +529,73 @@ def generate_ods(payload):
     grand_total = actual + markup_amt
     gen_dt      = datetime.now().strftime('%Y-%m-%d %H:%M')
     s_rows = [
-        row(sc(f'{proj_name} — AR Tracking Log', B)),
-        row(sc(f'Generated: {gen_dt}')),
-        blank(),
-        row(sc('Track',H),              sc('Hours / Units',H),                  sc('Actual Cost',H)),
-        row(sc('Design Labor'),         sc(f'{ms_hrs(d_ms):.2f} hrs'),          cc(design_total)),
-        row(sc('FDM Machine Time'),     sc(f'{ms_hrs(f_ms):.2f} hrs'),          cc(f_mach)),
-        row(sc('FDM Filament'),         sc(f'{f_g:.1f}g'),                       cc(f_fil)),
-        row(sc('FDM Electricity'),      sc(f'{elec_rate:.3f}/kWh'),              cc(f_elec)),
-        row(sc('Resin Machine Time'),   sc(f'{ms_hrs(r_ms):.2f} hrs'),          cc(r_mach)),
-        row(sc('Resin Material'),       sc(f'{r_ml:.1f} mL'),                    cc(r_mat)),
-        row(sc('Resin Electricity'),    sc(f'{elec_rate:.3f}/kWh'),              cc(r_elec)),
-        row(sc('Receipts / Expenses'),  sc(''),                                  cc(rec_total)),
-        blank(),
-        row(sc('Subtotal',B),           sc(''),                                  cc(actual,B)),
-        row(sc(f'Markup ({markup_pct:.1f}%)'), sc(''),                           cc(markup_amt)),
-        row(sc('Total (with markup)',B),sc(''),                                  cc(grand_total,B)),
+        _row(_t(f'{proj_name} — AR Tracking Log', B)),
+        _row(_t(f'Generated: {gen_dt}')),
+        _blank(),
+        _row(_t('Track',H),              _t('Hours / Units',H),                  _t('Actual Cost',H)),
+        _row(_t('Design Labor'),         _t(f'{ms_hrs(d_ms):.2f} hrs'),          _c(design_total)),
+        _row(_t('FDM Machine Time'),     _t(f'{ms_hrs(f_ms):.2f} hrs'),          _c(f_mach)),
+        _row(_t('FDM Filament'),         _t(f'{f_g:.1f}g'),                       _c(f_fil)),
+        _row(_t('FDM Electricity'),      _t(f'{elec_rate:.3f}/kWh'),              _c(f_elec)),
+        _row(_t('Resin Machine Time'),   _t(f'{ms_hrs(r_ms):.2f} hrs'),          _c(r_mach)),
+        _row(_t('Resin Material'),       _t(f'{r_ml:.1f} mL'),                    _c(r_mat)),
+        _row(_t('Resin Electricity'),    _t(f'{elec_rate:.3f}/kWh'),              _c(r_elec)),
+        _row(_t('Receipts / Expenses'),  _t(''),                                  _c(rec_total)),
+        _blank(),
+        _row(_t('Subtotal',B),           _t(''),                                  _c(actual,B)),
+        _row(_t(f'Markup ({markup_pct:.1f}%)'), _t(''),                           _c(markup_amt)),
+        _row(_t('Total (with markup)',B),_t(''),                                  _c(grand_total,B)),
     ]
     if f_failed_cost or r_failed_cost:
-        s_rows.append(blank())
-        s_rows.append(row(sc('— Failed Prints (not billed, included above) —')))
+        s_rows.append(_blank())
+        s_rows.append(_row(_t('— Failed Prints (not billed, included above) —')))
         if f_failed_cost:
-            s_rows.append(row(sc('Failed FDM Prints'), sc(''), cc(-f_failed_cost)))
+            s_rows.append(_row(_t('Failed FDM Prints'), _t(''), _c(-f_failed_cost)))
         if r_failed_cost:
-            s_rows.append(row(sc('Failed Resin Prints'), sc(''), cc(-r_failed_cost)))
+            s_rows.append(_row(_t('Failed Resin Prints'), _t(''), _c(-r_failed_cost)))
 
-    # ── ASSEMBLE XML ──────────────────────────────────────────────────────
+    return [
+        ('Summary',  s_rows,   3),
+        ('Design',   d_rows,   7),
+        ('FDM',      f_rows,  12),
+        ('Resin',    r_rows,  13),
+        ('Receipts', rec_rows, 2),
+    ]
+
+def _render_ods(tabs):
+    """Render tracking-log tab data (from build_tracking_log) as an ODS spreadsheet (bytes)."""
+    def xe(s):
+        return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+
+    def sc(v, sty=''):
+        sa = f' table:style-name="{sty}"' if sty else ''
+        if v is None or str(v).strip() == '':
+            return f'<table:table-cell{sa}/>'
+        return f'<table:table-cell office:value-type="string"{sa}><text:p>{xe(str(v))}</text:p></table:table-cell>'
+
+    def nc(v, sty=''):
+        sa = f' table:style-name="{sty}"' if sty else ''
+        try:    fv = float(v)
+        except (TypeError, ValueError): return f'<table:table-cell{sa}/>'
+        return f'<table:table-cell office:value-type="float" office:value="{fv}"{sa}><text:p>{fv:.2f}</text:p></table:table-cell>'
+
+    def cc(v, sty=''):
+        sa = f' table:style-name="{sty}"' if sty else ''
+        try:    fv = float(v)
+        except (TypeError, ValueError): return f'<table:table-cell{sa}/>'
+        return f'<table:table-cell office:value-type="currency" office:currency="USD" office:value="{fv}"{sa}><text:p>${fv:.2f}</text:p></table:table-cell>'
+
+    def render_cell(cell):
+        kind, v, sty = cell
+        if kind == 'num':      return nc(v, sty)
+        if kind == 'currency': return cc(v, sty)
+        return sc(v, sty)
+
+    def mksheet(name, rows, ncols):
+        cols = f'<table:table-column table:style-name="CO" table:number-columns-repeated="{ncols}"/>'
+        body = ''.join('<table:table-row>' + ''.join(render_cell(c) for c in r) + '</table:table-row>' for r in rows)
+        return f'<table:table table:name="{xe(name)}">{cols}{body}</table:table>'
+
     auto_styles = '''
   <style:style style:name="CO" style:family="table-column">
     <style:table-column-properties style:use-optimal-column-width="true"/>
@@ -586,6 +607,8 @@ def generate_ods(payload):
     <style:table-cell-properties fo:background-color="#26262b"/>
     <style:text-properties fo:font-weight="bold" fo:font-weight-asian="bold" fo:font-weight-complex="bold" fo:color="#e8e8ec"/>
   </style:style>'''
+
+    sheets = ''.join(mksheet(name, rows, ncols) for name, rows, ncols in tabs)
 
     content = f'''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content
@@ -599,11 +622,7 @@ def generate_ods(payload):
   <office:automatic-styles>{auto_styles}
   </office:automatic-styles>
   <office:body><office:spreadsheet>
-    {mksheet("Summary",  s_rows,  ncols=3)}
-    {mksheet("Design",   d_rows,  ncols=7)}
-    {mksheet("FDM",      f_rows,  ncols=12)}
-    {mksheet("Resin",    r_rows,  ncols=13)}
-    {mksheet("Receipts", rec_rows,ncols=2)}
+    {sheets}
   </office:spreadsheet></office:body>
 </office:document-content>'''
 
@@ -624,6 +643,158 @@ def generate_ods(payload):
         zf.writestr('styles.xml', styles)
         zf.writestr('content.xml', content)
     return buf.getvalue()
+
+def _render_xlsx(tabs):
+    """Render tracking-log tab data (from build_tracking_log) as an XLSX workbook (bytes)."""
+    def xe(s):
+        return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+
+    def col_ref(idx):
+        letters = ''
+        idx += 1
+        while idx > 0:
+            idx, rem = divmod(idx - 1, 26)
+            letters = chr(65 + rem) + letters
+        return letters
+
+    # cellXfs indices — see styles_xml below
+    STYLE = {
+        ('text', ''):      None,
+        ('text', 'B'):     1,
+        ('text', 'H'):     2,
+        ('num', ''):       5,
+        ('num', 'B'):      6,
+        ('currency', ''):  3,
+        ('currency', 'B'): 4,
+    }
+
+    def render_cell(cell, col_idx, row_idx):
+        kind, v, sty = cell
+        ref   = f'{col_ref(col_idx)}{row_idx}'
+        s_idx = STYLE.get((kind, sty))
+        if s_idx is None:
+            s_idx = STYLE.get(('text', sty))
+        s_attr = f' s="{s_idx}"' if s_idx else ''
+        if kind == 'text':
+            if v is None or str(v) == '':
+                return f'<c r="{ref}"{s_attr}/>' if s_attr else ''
+            return f'<c r="{ref}"{s_attr} t="inlineStr"><is><t xml:space="preserve">{xe(v)}</t></is></c>'
+        try:
+            fv = round(float(v), 10)
+        except (TypeError, ValueError):
+            return f'<c r="{ref}"{s_attr}/>' if s_attr else ''
+        return f'<c r="{ref}"{s_attr}><v>{fv}</v></c>'
+
+    def render_sheet(rows):
+        body = []
+        for r_idx, cells in enumerate(rows, start=1):
+            row_cells = ''.join(render_cell(c, c_idx, r_idx) for c_idx, c in enumerate(cells))
+            body.append(f'<row r="{r_idx}">{row_cells}</row>')
+        return (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            '<sheetData>' + ''.join(body) + '</sheetData>'
+            '</worksheet>'
+        )
+
+    styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/>
+    <numFmt numFmtId="165" formatCode="0.00"/>
+  </numFmts>
+  <fonts count="3">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/><color rgb="FFE8E8EC"/></font>
+  </fonts>
+  <fills count="3">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF26262B"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="1">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+  </cellStyleXfs>
+  <cellXfs count="7">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumFmt="1"/>
+    <xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumFmt="1" applyFont="1"/>
+    <xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumFmt="1"/>
+    <xf numFmtId="165" fontId="1" fillId="0" borderId="0" xfId="0" applyNumFmt="1" applyFont="1"/>
+  </cellXfs>
+</styleSheet>'''
+
+    n = len(tabs)
+    overrides = ''.join(
+        f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        for i in range(1, n + 1)
+    )
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+        + overrides +
+        '</Types>'
+    )
+
+    root_rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        '</Relationships>'
+    )
+
+    sheet_rels = ''.join(
+        f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i}.xml"/>'
+        for i in range(1, n + 1)
+    )
+    workbook_rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + sheet_rels +
+        f'<Relationship Id="rId{n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        '</Relationships>'
+    )
+
+    sheet_entries = ''.join(
+        f'<sheet name="{xe(name)}" sheetId="{i}" r:id="rId{i}"/>'
+        for i, (name, _, _) in enumerate(tabs, start=1)
+    )
+    workbook = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<sheets>{sheet_entries}</sheets>'
+        '</workbook>'
+    )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', content_types)
+        zf.writestr('_rels/.rels', root_rels)
+        zf.writestr('xl/workbook.xml', workbook)
+        zf.writestr('xl/_rels/workbook.xml.rels', workbook_rels)
+        zf.writestr('xl/styles.xml', styles_xml)
+        for i, (_, rows, _) in enumerate(tabs, start=1):
+            zf.writestr(f'xl/worksheets/sheet{i}.xml', render_sheet(rows))
+    return buf.getvalue()
+
+def generate_ods(payload):
+    """Build a 5-tab ODS spreadsheet from project+settings data. Returns bytes."""
+    return _render_ods(build_tracking_log(payload))
+
+def generate_xlsx(payload):
+    """Build a 5-tab XLSX workbook from project+settings data. Returns bytes."""
+    return _render_xlsx(build_tracking_log(payload))
 
 # ── HTTP HANDLER ──────────────────────────────────────────────────────
 # File extensions that should never be cached (app files)
@@ -775,6 +946,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(ods)
+                self.wfile.flush()
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                self.send_response(500)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+        elif self.path == '/generate-xlsx':
+            try:
+                length  = int(self.headers.get('Content-Length', 0))
+                payload = json.loads(self.rfile.read(length).decode())
+                xlsx    = generate_xlsx(payload)
+                safe    = ''.join(c if c.isalnum() or c in '-_' else '_'
+                                  for c in payload.get('project',{}).get('name','Project'))
+                fname   = f'AR-TrackingLog-{safe}.xlsx'
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                self.send_header('Content-Disposition', f'attachment; filename="{fname}"')
+                self.send_header('Content-Length', str(len(xlsx)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(xlsx)
                 self.wfile.flush()
             except Exception as e:
                 import traceback; traceback.print_exc()
