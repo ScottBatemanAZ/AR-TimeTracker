@@ -309,6 +309,7 @@
       <button class="data-btn restore" onclick="importBackup()" title="Restore from a JSON backup file">⬆ Restore</button>
     </div>
     <div id="syncStatusBar" style="display:none;padding:4px 14px 6px;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.05em;flex-shrink:0;">📁 synced <span id="syncStatusTime">—</span></div>
+    <div id="autoBackupBar" title="Automatic dated snapshot saved to the Backups folder — independent of the manual Backup button" style="display:none;padding:4px 14px 6px;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.05em;flex-shrink:0;">🛟 auto-backup <span id="autoBackupTime">—</span></div>
   </aside>
 
   <div class="main">
@@ -495,7 +496,7 @@
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
       <span>
         <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
-        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.6.0</span>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.7.0</span>
         <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
       </span>
     </footer>
@@ -2968,6 +2969,39 @@ function importBackup() {
   input.click();
 }
 
+// ── AUTO BACKUP ───────────────────────────────────────────────────────
+// Safety net for the manual ⬇ Backup button: silently snapshots to Backups/ via the
+// server (regardless of storageMode) at most once every AUTO_BACKUP_INTERVAL_MS.
+// The server dedupes identical snapshots and prunes old ones, so this stays cheap
+// even left running for weeks.
+const AUTO_BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+async function autoBackup() {
+  const last = Number(localStorage.getItem('ar_tracker_last_autobackup') || 0);
+  if (Date.now() - last < AUTO_BACKUP_INTERVAL_MS) return;
+  try {
+    const r = await fetch('/auto-backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type:     'ar-tracker-backup',
+        version:  TRACKER_VERSION,
+        exported: new Date().toISOString(),
+        data:     localStorage.getItem('ar_tracker_v1'),
+        settings: localStorage.getItem('ar_tracker_settings')
+      })
+    });
+    if (!r.ok) throw new Error('Server error ' + r.status);
+    localStorage.setItem('ar_tracker_last_autobackup', String(Date.now()));
+    const bar = document.getElementById('autoBackupBar');
+    if (bar) {
+      bar.style.display = 'block';
+      document.getElementById('autoBackupTime').textContent =
+        new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+  } catch (e) { console.warn('[AR] auto-backup failed:', e); }
+}
+
 // ── SHORTCUTS ─────────────────────────────────────────────────────────
 function showShortcuts() {
   document.getElementById('shortcutsModal').classList.add('open');
@@ -2997,7 +3031,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.6.0';
+const TRACKER_VERSION = 'Beta 10.7.0';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';
@@ -3193,6 +3227,9 @@ async function confirmFirstRun() {
 
   renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
   if (data.projects.length > 0) selectProject(data.projects[0].id);
+
+  autoBackup();
+  setInterval(autoBackup, AUTO_BACKUP_INTERVAL_MS);
 
   // Auto-open Settings for brand-new installs after branding step
   if (!settings.setupComplete) setTimeout(() => openSettings(), 350);

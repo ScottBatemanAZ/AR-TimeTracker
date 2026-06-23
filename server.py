@@ -25,9 +25,10 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 PORT = int(os.environ.get('AR_PORT', '5757'))  # AR_PORT lets a launcher (e.g. Electron) pick a free port
-SERVER_VERSION  = "1.8"
-TRACKER_VERSION = "Beta 10.6.0"
+SERVER_VERSION  = "1.9"
+TRACKER_VERSION = "Beta 10.7.0"
 POLL_INTERVAL   = 5  # seconds
+AUTO_BACKUP_RETAIN = 30  # max auto-backup snapshots kept in Backups/ before pruning oldest
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
 # PyInstaller bundles read-only assets into a temp dir (sys._MEIPASS).
@@ -72,6 +73,7 @@ sys.excepthook = _excepthook
 
 PRINTERS_FILE = os.path.join(DATA_DIR, 'printers.json')
 CONFIG_FILE   = os.path.join(DATA_DIR, 'config.json')
+BACKUPS_DIR   = os.path.join(DATA_DIR, 'Backups')
 
 GITHUB_REPO   = 'ScottBatemanAZ/AR-TimeTracker'
 _latest_release = {'checked': False, 'available': False, 'version': '', 'url': ''}
@@ -182,6 +184,37 @@ def save_data_to_path(data_path, payload):
     live = os.path.join(resolved, 'ar-data-live.json')
     with open(live, 'w', encoding='utf-8') as f:
         json.dump(payload, f, indent=2)
+
+# ── AUTO BACKUP ────────────────────────────────────────────────────────
+# Unlike save_data_to_path (live, single-file, file-storage-mode only), this keeps a
+# retained history of dated snapshots in Backups/ regardless of storageMode — the
+# manual ⬇ Backup button is the only thing that wrote there before this existed.
+def auto_backup(payload):
+    """Write a retained, deduped snapshot to Backups/. Returns the filename written, or None if skipped."""
+    os.makedirs(BACKUPS_DIR, exist_ok=True)
+    existing = sorted(
+        fn for fn in os.listdir(BACKUPS_DIR)
+        if fn.startswith('AR-Tracker-AutoBackup-') and fn.endswith('.json')
+    )
+    if existing:
+        try:
+            with open(os.path.join(BACKUPS_DIR, existing[-1]), encoding='utf-8') as f:
+                last = json.load(f)
+            if last.get('data') == payload.get('data') and last.get('settings') == payload.get('settings'):
+                return None  # nothing changed since the last snapshot — skip the write
+        except Exception:
+            pass  # corrupt/unreadable last snapshot shouldn't block a fresh one
+    stamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    filename = f'AR-Tracker-AutoBackup-{stamp}.json'
+    with open(os.path.join(BACKUPS_DIR, filename), 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2)
+    existing.append(filename)
+    for stale in existing[:-AUTO_BACKUP_RETAIN]:
+        try:
+            os.remove(os.path.join(BACKUPS_DIR, stale))
+        except OSError:
+            pass
+    return filename
 
 # ── FILENAME FALLBACK ─────────────────────────────────────────────────
 def material_from_filename(filename):
@@ -908,6 +941,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if data_path:
                     save_data_to_path(data_path, payload)
                 body = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+            return
+        if self.path == '/auto-backup':
+            try:
+                length  = int(self.headers.get('Content-Length', 0))
+                payload = json.loads(self.rfile.read(length).decode())
+                written = auto_backup(payload)
+                body = json.dumps({"ok": True, "file": written}).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', str(len(body)))
