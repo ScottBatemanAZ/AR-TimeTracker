@@ -571,6 +571,20 @@
   </div>
 </div>
 
+<!-- PROJECT PICKER MODAL (blocking — intentionally absent from both the Escape-key and backdrop-click close lists) -->
+<div class="modal-backdrop" id="projectPickerModal" style="z-index:150;">
+  <div class="modal" style="width:420px;">
+    <div class="modal-title">Choose a Project</div>
+    <p style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:14px;">
+      Pick which project to work in — printer auto-tracking won't start until you do.
+    </p>
+    <div id="projectPickerList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:14px;"></div>
+    <div class="modal-actions" style="justify-content:flex-start;">
+      <button class="btn-create" onclick="closeModal('projectPickerModal');openNewProject();">+ New Project</button>
+    </div>
+  </div>
+</div>
+
 <!-- FIRST RUN MODAL -->
 <div class="modal-backdrop" id="firstRunModal" style="z-index:200;">
   <div class="modal" style="width:500px;">
@@ -1654,6 +1668,27 @@ function toggleParent(id){
   if(collapsedParents.has(id)) collapsedParents.delete(id); else collapsedParents.add(id);
   renderSidebar();
 }
+function renderProjectPicker() {
+  const el = document.getElementById('projectPickerList');
+  const projects = data.projects.filter(p=>!p.archived);
+  el.innerHTML = projects.map(p=>{
+    const status = p.status||'active';
+    const indent = p.parentId ? 'margin-left:16px;' : '';
+    return `<div class="project-item" style="border-radius:4px;${indent}" onclick="pickStartupProject('${p.id}')">
+      <div class="proj-name"><span class="status-dot ${status}"></span><span class="proj-name-text">${esc(p.name)}</span></div>
+      <div class="proj-meta">${esc(p.scope||'')}</div>
+    </div>`;
+  }).join('');
+}
+function pickStartupProject(id) {
+  closeModal('projectPickerModal');
+  selectProject(id);
+}
+function openProjectPicker() {
+  if (!data.projects.length) { openNewProject(); return; }
+  renderProjectPicker();
+  document.getElementById('projectPickerModal').classList.add('open');
+}
 
 // ── RENDER ────────────────────────────────────────────────────────────
 function renderProject() {
@@ -2441,7 +2476,7 @@ function saveProject(){
     if(estH)   proj.estimatedHours=estH;
     if(parentId) proj.parentId=parentId;
     data.projects.push(proj);
-    saveData(); closeModal('projectModal'); renderSidebar(); selectProject(proj.id);
+    saveData(); closeModal('projectModal'); closeModal('projectPickerModal'); renderSidebar(); selectProject(proj.id);
   }
 }
 function deleteProject(){
@@ -3336,7 +3371,7 @@ async function confirmFirstRun() {
   }
 
   renderSidebar(); loadFilamentLibrary(); loadResinLibrary();
-  if (data.projects.length > 0) selectProject(data.projects[0].id);
+  openProjectPicker();
 
   autoBackup();
   setInterval(autoBackup, AUTO_BACKUP_INTERVAL_MS);
