@@ -100,6 +100,10 @@
   .pcard-dot.idle     { background: var(--dim); }
   .pcard-dot.offline  { background: var(--red); }
   .pcard-dot.unknown  { background: var(--dim); opacity: .5; }
+  .track-toggle { display:inline-flex; align-items:center; gap:3px; margin-left:8px; font-family:var(--mono); font-size:9px; color:var(--muted); cursor:pointer; user-select:none; vertical-align:middle; text-transform:none; letter-spacing:0; }
+  .track-toggle input[type=checkbox] { width:11px; height:11px; cursor:pointer; margin:0; }
+  .track-toggle.fdm input[type=checkbox]   { accent-color: var(--green-bright); }
+  .track-toggle.resin input[type=checkbox] { accent-color: var(--blue-bright); }
   .punch-btn { width: 68px; height: 68px; border-radius: 50%; border: 2px solid var(--border2); background: var(--surface2); color: var(--muted); font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex-shrink: 0; }
   .punch-btn svg { width: 20px; height: 20px; }
   .punch-btn.design:hover  { border-color: var(--accent); background: rgba(127,119,221,.1); color: var(--accent); }
@@ -395,7 +399,7 @@
           <div id="fdmMatCode" class="mat-code fdm-code"></div>
           </div>
           <div class="track-info">
-            <div class="track-label fdm-label">FDM Printer<span class="printer-dot dim" id="printerDot" title="Printer status unknown"></span></div>
+            <div class="track-label fdm-label">FDM Printer<span class="printer-dot dim" id="printerDot" title="Printer status unknown"></span><label class="track-toggle fdm" title="Auto-track FDM printers for this project"><input type="checkbox" id="fdmTrackToggle" onchange="setTrackEnabled('fdm', this.checked)" checked><span>auto</span></label></div>
             <div class="track-rate" id="fdmRateLabel"></div>
             <div class="live-timer fdm-timer" id="fdmTimer">00:00:00</div>
             <div class="clock-status" id="fdmStatus">Not running</div>
@@ -416,7 +420,7 @@
           <div id="resinMatCode" class="mat-code resin-code"></div>
           </div>
           <div class="track-info">
-            <div class="track-label resin-label">Resin Printer</div>
+            <div class="track-label resin-label">Resin Printer<label class="track-toggle resin" title="Auto-track Resin printers for this project"><input type="checkbox" id="resinTrackToggle" onchange="setTrackEnabled('resin', this.checked)" checked><span>auto</span></label></div>
             <div class="track-rate" id="resinRateLabel"></div>
             <div class="live-timer resin-timer" id="resinTimer">00:00:00</div>
             <div class="clock-status" id="resinStatus">Not running</div>
@@ -1797,6 +1801,8 @@ function renderClock(type) {
     const btnWrap = document.getElementById(type+'Btn')?.parentElement;
     if (btnWrap) btnWrap.style.display = multi ? 'none' : '';
     renderPrinterCards(type);
+    const toggle = document.getElementById(type+'TrackToggle');
+    if (toggle) toggle.checked = p[type==='fdm'?'trackFdm':'trackResin'] !== false;
   }
   // Subtype code under Design button
   if (type === 'design') {
@@ -1972,6 +1978,11 @@ function selectProject(id) {
   renderSidebar();
 }
 
+function setTrackEnabled(type, checked) {
+  if (!activeProject) return;
+  activeProject[type==='fdm'?'trackFdm':'trackResin'] = checked;
+  saveData();
+}
 // ── PUNCH ────────────────────────────────────────────────────────────
 function togglePunch(type) {
   if(!activeProject) return;
@@ -2954,6 +2965,7 @@ function processPrinterState(type, printer, ps) {
   }
 
   if (!reachable || !activeProject) return;
+  if (activeProject[type==='fdm'?'trackFdm':'trackResin'] === false) return;
 
   const prev = prevPrinterStatuses[pid];
   const wasPrinting = prev === 'printing';
