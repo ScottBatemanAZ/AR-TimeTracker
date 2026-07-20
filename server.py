@@ -25,10 +25,18 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 PORT = int(os.environ.get('AR_PORT', '5757'))  # AR_PORT lets a launcher (e.g. Electron) pick a free port
-SERVER_VERSION  = "1.9"
-TRACKER_VERSION = "Beta 10.7.0"
+SERVER_VERSION  = "1.10"
+TRACKER_VERSION = "Beta 10.8.0"
 POLL_INTERVAL   = 5  # seconds
 AUTO_BACKUP_RETAIN = 30  # max auto-backup snapshots kept in Backups/ before pruning oldest
+
+# Formlabs Dashboard Cloud API — printers aren't on the LAN like Moonraker/OctoPrint;
+# status only comes from Formlabs' internet API, and their documented rate limit
+# (1500 req/hr per user) means this printer type must be polled far less often than
+# the shared 5s POLL_INTERVAL.
+FORMLABS_TOKEN_URL     = "https://api.formlabs.com/developer/v1/o/token/"
+FORMLABS_PRINTER_URL   = "https://api.formlabs.com/developer/v1/printers/{serial}/"
+FORMLABS_POLL_INTERVAL = 30  # seconds
 
 # ── PATH SETUP ────────────────────────────────────────────────────────
 # PyInstaller bundles read-only assets into a temp dir (sys._MEIPASS).
@@ -286,6 +294,19 @@ def _split_printer_url(url):
     base    = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip('/'), '', ''))
     return base, api_key
 
+def _parse_formlabs_url(url):
+    """Parse a `formlabs://SERIAL?client_id=...&client_secret=...` config value.
+
+    Formlabs printers aren't reachable on the LAN the way Moonraker/OctoPrint
+    are, so the URL field can't just hold an IP — the `formlabs://` scheme is
+    what tells poll_printer() to route to the Dashboard Cloud API instead.
+    Credentials come from https://dashboard.formlabs.com/#developer.
+    """
+    parsed = urllib.parse.urlsplit(url.strip())
+    serial = parsed.netloc or parsed.path.strip('/')
+    qs     = urllib.parse.parse_qs(parsed.query)
+    return serial, (qs.get('client_id') or [''])[0], (qs.get('client_secret') or [''])[0]
+
 def poll_moonraker(printer, base_url):
     """Poll a single Moonraker instance and update its state entry."""
     pid       = printer['id']
@@ -359,15 +380,110 @@ def poll_octoprint(printer, base_url, api_key):
                 "reachable":    False,
             })
 
+_formlabs_tokens = {}  # {client_id: {"access_token":.., "expires_at":..}} — reused until near expiry
+
+def _formlabs_api_error(e):
+    """Best-effort extraction of the JSON error body Formlabs' API returns on 4xx/5xx."""
+    if isinstance(e, urllib.error.HTTPError):
+        try:
+            return f"HTTP {e.code}: {e.read().decode(errors='replace')[:300]}"
+        except Exception:
+            return f"HTTP {e.code}"
+    return str(e)
+
+def _formlabs_get_token(client_id, client_secret):
+    cached = _formlabs_tokens.get(client_id)
+    if cached and cached['expires_at'] > time.time() + 30:
+        return cached['access_token']
+    # Body-based client_id/client_secret — this is the exact format Formlabs'
+    # own docs show. (A Basic-Auth variant was tried and produced the identical
+    # invalid_client error, which points at the credentials/app itself rather
+    # than the request format — see CLAUDE.md Printer integration notes.)
+    data = urllib.parse.urlencode({
+        'grant_type':    'client_credentials',
+        'client_id':     client_id,
+        'client_secret': client_secret,
+    }).encode()
+    req  = urllib.request.Request(FORMLABS_TOKEN_URL, data=data, method='POST',
+                                   headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    body = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
+    token = body['access_token']
+    _formlabs_tokens[client_id] = {
+        'access_token': token,
+        'expires_at':   time.time() + float(body.get('expires_in', 86400)),
+    }
+    return token
+
+def poll_formlabs(printer, serial, client_id, client_secret):
+    """Poll a Formlabs printer via the Dashboard Cloud API and update its state entry.
+
+    No LAN endpoint exists for third-party status polling — Formlabs only exposes
+    live print status over the internet, for printers registered to a Dashboard
+    account. Throttled to FORMLABS_POLL_INTERVAL (much slower than the 5s cadence
+    used for Moonraker/OctoPrint) to respect Formlabs' documented rate limits.
+    """
+    pid  = printer['id']
+    now  = time.time()
+    prev = printer_states.get(pid) or {}
+    if now - prev.get('last_checked', 0) < FORMLABS_POLL_INTERVAL:
+        return
+    if not (serial and client_id and client_secret):
+        print(f"  [formlabs:{pid}] missing serial/client_id/client_secret in Printer URL — check the formlabs:// syntax")
+        with states_lock:
+            printer_states[pid].update({"status": "unreachable", "last_checked": now, "reachable": False})
+        return
+    try:
+        token = _formlabs_get_token(client_id, client_secret)
+        req   = urllib.request.Request(
+            FORMLABS_PRINTER_URL.format(serial=serial),
+            headers={'Authorization': f'Bearer {token}'},
+        )
+        body = json.loads(urllib.request.urlopen(req, timeout=8).read().decode())
+        ps         = body.get('printer_status', {}) or {}
+        run        = ps.get('current_print_run') or {}
+        run_status = (run.get('status') or '').upper()
+
+        if run_status == 'PRINTING':
+            status = 'printing'
+        elif run_status == 'FINISHED':
+            success = (run.get('print_run_success') or {}).get('print_run_success')
+            status  = 'error' if success is False else 'complete'
+        else:
+            status = 'idle'
+
+        with states_lock:
+            printer_states[pid].update({
+                "status":         status,
+                "filename":       run.get('name', '') or '',
+                "print_duration": (run.get('elapsed_duration_ms') or 0) / 1000,
+                "filament_used":  0,
+                "filament_type":  "",
+                "filament_name":  "",
+                "estimated_time": (run.get('estimated_duration_ms') or 0) / 1000,
+                "last_checked":   now,
+                "reachable":      True,
+            })
+    except Exception as e:
+        print(f"  [formlabs:{pid}] poll failed: {_formlabs_api_error(e)}")
+        with states_lock:
+            printer_states[pid].update({"status": "unreachable", "last_checked": now, "reachable": False})
+
 def poll_printer(printer):
-    """Poll a single printer — Moonraker or OctoPrint, auto-detected from its URL
-    (see _split_printer_url) — and update its shared printer_states entry."""
+    """Poll a single printer — Moonraker, OctoPrint, or Formlabs, auto-detected from
+    its URL (see _split_printer_url / _parse_formlabs_url) — and update its shared
+    printer_states entry."""
     pid = printer['id']
     with states_lock:
         if pid not in printer_states:
             printer_states[pid] = _blank_state(printer.get('name', pid))
 
-    base_url, api_key = _split_printer_url(printer.get('moonrakerUrl', ''))
+    raw = printer.get('moonrakerUrl', '')
+    if raw.strip().lower().startswith('formlabs://'):
+        serial, client_id, client_secret = _parse_formlabs_url(raw)
+        poll_formlabs(printer, serial, client_id, client_secret)
+        return
+
+    base_url, api_key = _split_printer_url(raw)
     if api_key:
         poll_octoprint(printer, base_url, api_key)
     else:

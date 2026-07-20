@@ -496,7 +496,7 @@
       <span>© 2025 <a href="https://azazelsrazer.com" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Azazel's Razer, LLC</a> &mdash; made with ❤️ in collaboration with <a href="https://claude.ai/claude-code" target="_blank" style="color:#636370;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#636370'">Claude Code (Sonnet 4.6)</a></span>
       <span>
         <button onclick="openResinSources()" style="background:none;border:none;font-family:var(--mono);font-size:10.5px;color:#636370;cursor:pointer;padding:0;letter-spacing:.05em;text-decoration:underline;" onmouseover="this.style.color='var(--blue-bright)'" onmouseout="this.style.color='#636370'">data sources</button>
-        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.7.0</span>
+        &nbsp;|&nbsp; <span id="footerVersion">Beta 10.8.0</span>
         <a id="updateBadge" href="#" target="_blank" style="display:none;margin-left:10px;font-family:var(--mono);font-size:9.5px;background:rgba(239,159,39,.15);border:1px solid rgba(239,159,39,.5);color:var(--amber);border-radius:3px;padding:2px 7px;text-decoration:none;letter-spacing:.05em;" title="Click to download the latest release">⬆ update available</a>
       </span>
     </footer>
@@ -983,13 +983,19 @@
     </div>
 
     <div class="settings-section">Resin Printers</div>
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">
+      Works with Moonraker (Klipper) or OctoPrint like FDM above. For a Formlabs printer
+      (no LAN status endpoint — polled via Formlabs' Dashboard Cloud API instead), use
+      <code>formlabs://SERIAL?client_id=YOUR_ID&client_secret=YOUR_SECRET</code>
+      (credentials from dashboard.formlabs.com → Developer).
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1.5fr 62px 24px;gap:8px;margin-bottom:4px;">
       <span class="col-header">Name</span><span class="col-header">Printer URL</span><span class="col-header">⚡ Watts</span><span></span>
     </div>
     <div class="type-list" id="resinPrintersList"></div>
     <div class="type-add-row printer-add" style="grid-template-columns:1fr 1.5fr 62px 24px;">
       <input type="text" id="newResinPrinterName" placeholder="e.g. Mars 4 Ultra" />
-      <input type="text" id="newResinPrinterUrl"  placeholder="http://192.168.0.xx (or ?apikey=... for OctoPrint)" />
+      <input type="text" id="newResinPrinterUrl"  placeholder="http://192.168.0.xx (or formlabs://SERIAL?client_id=...)" />
       <input type="number" id="newResinPrinterWatts" placeholder="W" min="0" step="10" />
       <button class="type-add-btn" onclick="addResinPrinter()">+</button>
     </div>
@@ -3031,7 +3037,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── STORAGE MODE ──────────────────────────────────────────────────────
-const TRACKER_VERSION = 'Beta 10.7.0';
+const TRACKER_VERSION = 'Beta 10.8.0';
 let storageMode = 'local';
 let _saveTimer  = null;
 let _frChoice   = 'local';
