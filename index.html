@@ -17,6 +17,7 @@
     --accent: #7f77dd; --accent-dim: #3c3489;
     --green: #1d9e75; --green-bright: #5dcaa5;
     --amber: #ef9f27; --blue: #378add; --blue-bright: #85b7eb; --red: #e24b4a;
+    --orange: #db6b3f; --magenta: #d874c7;
     --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
   }
   body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; line-height: 1.5; }
@@ -254,6 +255,11 @@
 
   .settings-section { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: 10px; margin-bottom: 10px; }
   .settings-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .settings-section.sec-green   { color: var(--green-bright); }
+  .settings-section.sec-blue    { color: var(--blue-bright); }
+  .settings-section.sec-amber   { color: var(--amber); }
+  .settings-section.sec-magenta { color: var(--magenta); }
+  .settings-section.sec-orange  { color: var(--orange); }
   .settings-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
   .type-list { margin-bottom: 8px; min-height: 20px; }
   .type-row { display: grid; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
@@ -871,7 +877,7 @@
   <div class="modal">
     <div class="modal-title">Rates &amp; Settings</div>
 
-    <div class="settings-section">Branding</div>
+    <div class="settings-section sec-magenta">Branding</div>
     <div class="settings-2col">
       <div class="form-row">
         <label class="form-label">Business / Studio Name</label>
@@ -892,7 +898,7 @@
       <img id="setLogoPreview" style="max-height:60px;max-width:180px;border-radius:4px;display:none;object-fit:contain;">
     </div>
 
-    <div class="settings-section">Hourly Rates</div>
+    <div class="settings-section sec-amber">Hourly Rates</div>
     <div class="settings-2col">
       <div class="form-row">
         <label class="form-label">Design Labor ($/hr)</label>
@@ -928,7 +934,7 @@
       </div>
     </div>
 
-    <div class="settings-section">Filament Types, Costs &amp; Density</div>
+    <div class="settings-section sec-green">Filament Types, Costs &amp; Density</div>
     <div style="display:grid;grid-template-columns:1fr 72px 58px 24px;gap:6px;margin-bottom:4px;">
       <span class="col-header">Name</span><span class="col-header">$/kg</span><span class="col-header">g/cm³</span><span></span>
     </div>
@@ -947,7 +953,7 @@
       <button class="type-add-btn" onclick="addFilamentType()">+</button>
     </div>
 
-    <div class="settings-section">Resin Types, Costs &amp; Density</div>
+    <div class="settings-section sec-blue">Resin Types, Costs &amp; Density</div>
     <div style="display:grid;grid-template-columns:1fr 60px 58px 24px;gap:6px;margin-bottom:4px;">
       <span class="col-header">Name</span><span class="col-header">$/kg</span><span class="col-header">g/mL</span><span></span>
     </div>
@@ -965,7 +971,7 @@
       <button class="type-add-btn" onclick="addResinType()">+</button>
     </div>
 
-    <div class="settings-section">FDM Printers</div>
+    <div class="settings-section sec-green">FDM Printers</div>
     <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">
       Works with Moonraker (Klipper) or OctoPrint — just paste the printer's URL. For OctoPrint,
       append your API key as a query string: <code>http://192.168.0.xx?apikey=YOUR_KEY</code>
@@ -982,7 +988,7 @@
       <button class="type-add-btn" onclick="addFdmPrinter()">+</button>
     </div>
 
-    <div class="settings-section">Resin Printers</div>
+    <div class="settings-section sec-blue">Resin Printers</div>
     <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">
       Works with Moonraker (Klipper) or OctoPrint like FDM above. For a Formlabs printer
       (no LAN status endpoint — polled via Formlabs' Dashboard Cloud API instead), use
@@ -1000,7 +1006,7 @@
       <button class="type-add-btn" onclick="addResinPrinter()">+</button>
     </div>
 
-    <div class="settings-section">Spoolman <span style="color:var(--dim);font-weight:400;">(optional — filament spool tracking)</span></div>
+    <div class="settings-section sec-orange">Spoolman <span style="color:var(--dim);font-weight:400;">(optional — filament spool tracking)</span></div>
     <div class="form-row-2" style="align-items:end;">
       <div class="form-row" style="margin-bottom:0;">
         <label class="form-label">Server URL</label>
@@ -1015,14 +1021,14 @@
       Don't have Spoolman? <a href="https://github.com/Donkie/Spoolman" target="_blank" style="color:var(--blue-bright);">Set it up on GitHub →</a>
     </div>
 
-    <div class="settings-section">Storage</div>
+    <div class="settings-section sec-orange">Storage</div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px;font-family:var(--mono);font-size:10.5px;">
       <span style="color:var(--muted);">Mode: <span id="settingsStorageMode" style="color:var(--text);"></span></span>
       <button onclick="reconfigureStorage()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border2);color:var(--dim);border-radius:3px;padding:3px 9px;cursor:pointer;letter-spacing:.05em;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--dim)'">Reconfigure…</button>
     </div>
 
     <div id="desktopAppSection" style="display:none;">
-      <div class="settings-section">Desktop App</div>
+      <div class="settings-section sec-orange">Desktop App</div>
       <label style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px;font-family:var(--mono);font-size:10.5px;cursor:pointer;">
         <span style="color:var(--muted);">Launch automatically when I sign in</span>
         <input type="checkbox" id="settingsAutoLaunch" onchange="toggleAutoLaunch(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
