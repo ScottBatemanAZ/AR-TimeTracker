@@ -911,6 +911,7 @@
       </div>
       <div class="form-hint preview" id="resinCostPreview"></div>
       <div class="form-hint" id="resinMachineHint" style="margin-top:4px;"></div>
+      <div id="resinTankWarning" style="display:none;margin-top:8px;padding:6px 10px;background:rgba(239,159,39,.07);border:1px solid rgba(239,159,39,.35);border-radius:4px;font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:.02em;"></div>
     </div>
     <!-- Session Time Editor -->
     <hr class="modal-section-rule">
@@ -2299,6 +2300,27 @@ function showMoonrakerHint(mm, density, grams) {
   hint.textContent = '⬡ Moonraker: ' + Math.round(mm) + 'mm extruded × ' + density + ' g/cm³ = ' + grams.toFixed(2) + 'g (edit if needed)';
   hint.style.display = 'block';
 }
+function getResinLibraryEntry(rtName) {
+  return resinLibrary.find(m => (m.brand === 'Generic' ? m.name : m.full) === rtName);
+}
+function checkTankCompatibility() {
+  const banner = document.getElementById('resinTankWarning');
+  if (!banner) return;
+  banner.style.display = 'none';
+  if (!pendingMaterial || pendingMaterial.type !== 'resin' || !activeProject) return;
+  const s = activeProject.resinSessions[pendingMaterial.sessionIdx];
+  if (!s || !s.printerId) return;
+  const printer = (settings.resinPrinters||[]).find(p => p.id === s.printerId);
+  if (!printer || !(printer.moonrakerUrl||'').startsWith('formlabs://')) return;
+  const { tankType } = _flParseUrl(printer.moonrakerUrl);
+  if (!tankType) return;
+  const rtName = document.getElementById('matResinType').value;
+  const entry = getResinLibraryEntry(rtName);
+  if (!entry || !entry.tankCompatibility || !entry.tankCompatibility.length) return;
+  if (entry.tankCompatibility.includes(tankType)) return;
+  banner.textContent = `⚠ ${rtName} requires ${entry.tankCompatibility.join(' or ')} — this printer is set to ${tankType}.`;
+  banner.style.display = 'block';
+}
 function onResinTypeChange() {
   const name=document.getElementById('matResinType').value;
   const rt=settings.resinTypes.find(r=>r.name===name);
@@ -2307,6 +2329,7 @@ function onResinTypeChange() {
     document.getElementById('matResinDensity').value=rt.densityGPerMl;
   }
   updateResinPreview();
+  checkTankCompatibility();
 }
 function updateFdmPreview() {
   const g=parseFloat(document.getElementById('matGrams').value)||0;
@@ -2394,6 +2417,7 @@ function openMaterialModal(type,sessionIdx) {
     document.getElementById('resinMachineHint').textContent=hrs.toFixed(2)+'h × $'+settings.resinRate+'/hr = '+fmtMoney(hrs*settings.resinRate)+' machine cost';
     document.getElementById('matSaveBtn').textContent='Log Resin';
     updateResinPreview();
+    checkTankCompatibility();
     document.getElementById('matSessionStart').value=toDatetimeLocal(s.start);
     document.getElementById('matSessionEnd').value=s.end?toDatetimeLocal(s.end):'';
     document.getElementById('matNote').value=s.note||'';
