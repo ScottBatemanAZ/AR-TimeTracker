@@ -281,6 +281,14 @@
   .type-add-btn:hover { border-color: var(--amber); color: var(--amber); }
   .col-header { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: right; padding-bottom: 4px; }
   .col-header:first-child { text-align: left; }
+  .rlib-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .rlib-row:last-child { border-bottom: none; }
+  .rlib-name { font-family: var(--mono); font-size: 11px; color: var(--text); }
+  .rlib-brand { font-family: var(--mono); font-size: 9px; color: var(--blue-bright); text-transform: uppercase; letter-spacing: .05em; margin-left: 6px; }
+  .rlib-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .rlib-spec { font-family: var(--mono); font-size: 9px; color: var(--dim); margin-top: 2px; }
+  .rlib-add-btn { font-family: var(--mono); font-size: 10px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: 3px; padding: 4px 9px; cursor: pointer; white-space: nowrap; align-self: center; }
+  .rlib-add-btn:hover { background: var(--surface3); border-color: var(--blue-bright); color: var(--blue-bright); }
 
   .empty-main { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: var(--dim); font-family: var(--mono); font-size: 13px; }
   .empty-main svg { width: 40px; height: 40px; stroke: var(--dim); }
@@ -711,6 +719,23 @@
   </div>
 </div>
 
+<!-- RESIN LIBRARY BROWSER MODAL -->
+<div class="modal-backdrop" id="resinLibraryModal" style="z-index:150;">
+  <div class="modal" style="width:560px;">
+    <div class="modal-title" style="color:var(--blue-bright);">Resin Library</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="text" id="rlibSearch" placeholder="Search name, brand, tag…" oninput="renderResinLibraryList()" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:6px 8px;outline:none;" />
+      <select id="rlibBrandFilter" onchange="renderResinLibraryList()" style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:6px 8px;">
+        <option value="">All Brands</option>
+      </select>
+    </div>
+    <div id="rlibList" style="max-height:420px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('resinLibraryModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- PROJECT MODAL -->
 <div class="modal-backdrop" id="projectModal">
   <div class="modal">
@@ -1022,12 +1047,7 @@
       <span class="col-header">Name</span><span class="col-header">$/kg</span><span class="col-header">g/mL</span><span></span>
     </div>
     <div class="type-list" id="resinTypesList"></div>
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-      <select id="resinLibraryPicker" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:4px 6px;" onchange="">
-        <option value="">— add from library —</option>
-      </select>
-      <button class="type-add-btn" onclick="addFromResinLibrary()" title="Add selected resin">+</button>
-    </div>
+    <button class="manual-link" style="margin-bottom:6px;" onclick="openResinLibraryModal()">+ Browse Resin Library (84 materials)</button>
     <div class="type-add-row resin-add">
       <input type="text" id="newResinName" placeholder="e.g. Flexible" />
       <input type="number" id="newResinCost" placeholder="$/kg" step="0.50" min="0" style="width:100%;" />
@@ -1227,7 +1247,6 @@ function openSettings() {
   renderFdmPrintersList();
   renderResinPrintersList();
   populateFilamentLibraryPicker();
-  populateResinLibraryPicker();
   const modeLabel = storageMode === 'file' ? '📁 File (server)' : '🌐 Browser (localStorage)';
   document.getElementById('settingsStorageMode').textContent = modeLabel;
   // Desktop App section — only meaningful inside the Electron wrapper.
@@ -2582,11 +2601,11 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal','editSessionModal','resinSourcesModal','exportModal','archiveModal','formlabsModal'].forEach(closeModal);pendingMaterial=null;manualType=null;editingSession=null;editingFormlabsIdx=null;}
+  if(e.key==='Escape'){['projectModal','materialModal','settingsModal','manualModal','subtypeModal','editSessionModal','resinSourcesModal','exportModal','archiveModal','formlabsModal','resinLibraryModal'].forEach(closeModal);pendingMaterial=null;manualType=null;editingSession=null;editingFormlabsIdx=null;}
   if(e.key==='Enter'&&document.getElementById('projectModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA') saveProject();
   if(e.key==='Enter'&&document.getElementById('manualModal').classList.contains('open')) saveManualTime();
 });
-['projectModal','settingsModal','resinSourcesModal'].forEach(id=>
+['projectModal','settingsModal','resinSourcesModal','resinLibraryModal'].forEach(id=>
   document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal(id);})
 );
 document.getElementById('receiptAmt').addEventListener('keydown',e=>{if(e.key==='Enter')addReceipt();});
@@ -2935,6 +2954,7 @@ function openFilamentInfo() {
 }
 
 let resinLibrary = [];
+let _rlibFiltered = [];
 
 async function loadResinLibrary() {
   try {
@@ -2950,34 +2970,62 @@ async function loadResinLibrary() {
       }
     });
     if (changed) persistSettings();
-    populateResinLibraryPicker();
   } catch(e) { /* library unavailable — no problem */ }
 }
 
-function populateResinLibraryPicker() {
-  const sel = document.getElementById('resinLibraryPicker');
-  if (!sel) return;
-  const existing = new Set(settings.resinTypes.map(r => r.name.toLowerCase()));
-  sel.innerHTML = '<option value="">— add from library —</option>';
-  resinLibrary
-    .filter(m => !existing.has(m.name.toLowerCase()))
-    .forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.name;
-      opt.textContent = m.name + ' — ' + m.full + '  (' + m.densityGPerMl + ' g/mL)';
-      sel.appendChild(opt);
-    });
+function libDisplayName(mat) {
+  return mat.brand === 'Generic' ? mat.name : mat.full;
 }
 
-function addFromResinLibrary() {
-  const sel = document.getElementById('resinLibraryPicker');
-  if (!sel || !sel.value) return;
-  const mat = resinLibrary.find(m => m.name === sel.value);
+function openResinLibraryModal() {
+  const brandSel = document.getElementById('rlibBrandFilter');
+  const brands = [...new Set(resinLibrary.map(m => m.brand))].sort();
+  brandSel.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+  document.getElementById('rlibSearch').value = '';
+  renderResinLibraryList();
+  document.getElementById('resinLibraryModal').classList.add('open');
+  setTimeout(()=>document.getElementById('rlibSearch').focus(),50);
+}
+
+function renderResinLibraryList() {
+  const search = (document.getElementById('rlibSearch').value||'').toLowerCase();
+  const brandFilter = document.getElementById('rlibBrandFilter').value;
+  const existing = new Set(settings.resinTypes.map(r => r.name.toLowerCase()));
+  _rlibFiltered = resinLibrary.filter(m => {
+    if (existing.has(libDisplayName(m).toLowerCase())) return false;
+    if (brandFilter && m.brand !== brandFilter) return false;
+    if (!search) return true;
+    const haystack = (m.name + ' ' + m.brand + ' ' + m.full + ' ' + (m.tags||[]).join(' ')).toLowerCase();
+    return haystack.includes(search);
+  });
+  const el = document.getElementById('rlibList');
+  if (!_rlibFiltered.length) { el.innerHTML = '<div class="empty-state">No matches.</div>'; return; }
+  el.innerHTML = _rlibFiltered.map((m,i) => {
+    const specParts = [];
+    if (m.mechanical && m.mechanical.tensileStrengthMPa != null) specParts.push(m.mechanical.tensileStrengthMPa + ' MPa tensile');
+    if (m.mechanical && m.mechanical.shoreHardness != null) specParts.push('Shore ' + m.mechanical.shoreHardness);
+    if (m.printerCompatibility && m.printerCompatibility.length) specParts.push(m.printerCompatibility.join('/'));
+    if (m.tankCompatibility && m.tankCompatibility.length) specParts.push('needs ' + m.tankCompatibility.join(' or '));
+    const specLine = specParts.length ? `<div class="rlib-spec">${esc(specParts.join(' · '))}</div>` : '';
+    return `<div class="rlib-row">
+      <div>
+        <span class="rlib-name">${esc(m.name)}</span><span class="rlib-brand">${esc(m.brand)}</span>
+        <div class="rlib-meta">$${m.typicalCostPerKg ?? '—'}/kg${m.densityGPerMl != null ? ', ' + m.densityGPerMl + ' g/mL' : ''}</div>
+        ${specLine}
+      </div>
+      <button class="rlib-add-btn" onclick="useLibraryResin(${i})">+ Use</button>
+    </div>`;
+  }).join('');
+}
+
+function useLibraryResin(idx) {
+  const mat = _rlibFiltered[idx];
   if (!mat) return;
-  if (settings.resinTypes.find(r => r.name.toLowerCase() === mat.name.toLowerCase())) return;
-  settings.resinTypes.push({ name: mat.name, costPerKg: mat.typicalCostPerKg, densityGPerMl: mat.densityGPerMl });
+  const name = libDisplayName(mat);
+  if (settings.resinTypes.find(r => r.name.toLowerCase() === name.toLowerCase())) return;
+  settings.resinTypes.push({ name, costPerKg: mat.typicalCostPerKg || 0, densityGPerMl: mat.densityGPerMl || 1.10 });
   renderResinTypesList();
-  populateResinLibraryPicker();
+  renderResinLibraryList();
 }
 
 function openResinSources() {
