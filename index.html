@@ -803,9 +803,22 @@
       <input type="password" id="flClientSecret" placeholder="" autocomplete="off" />
       <div class="form-hint" id="flSecretHint" style="display:none;">Leave blank to keep the existing secret.</div>
     </div>
-    <div class="form-row" style="margin-bottom:0;">
+    <div class="form-row">
       <label class="form-label">⚡ Watts (optional)</label>
       <input type="number" id="flWatts" placeholder="W" min="0" step="10" />
+    </div>
+    <div class="form-row">
+      <label class="form-label">Printer Model (optional)</label>
+      <select id="flPrinterModel" style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:5px 8px;" onchange="populateFlTankOptions(this.value,'')">
+        <option value="">— not set —</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin-bottom:0;">
+      <label class="form-label">Installed Tank (optional)</label>
+      <select id="flTankType" style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:4px;padding:5px 8px;">
+        <option value="">— not set —</option>
+      </select>
+      <div class="form-hint">Used to warn if a picked resin doesn't match what's loaded — set both to enable.</div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('formlabsModal')">Cancel</button>
@@ -1270,21 +1283,52 @@ function addFdmPrinter() {
   document.getElementById('newFdmPrinterWatts').value='';
   renderFdmPrintersList();
 }
+const FORMLABS_TANK_OPTIONS = {
+  'Form 2':   ['Form 2 Resin Tank (PDMS)', 'Form 2 LT Tank'],
+  'Form 3':   ['Form 3 Resin Tank V2.1'],
+  'Form 3B':  ['Form 3 Resin Tank V2.1'],
+  'Form 3+':  ['Form 3 Resin Tank V2.1'],
+  'Form 3B+': ['Form 3 Resin Tank V2.1'],
+  'Form 3L':  ['Form 3L Resin Tank V3'],
+  'Form 3BL': ['Form 3L Resin Tank V3'],
+  'Form 4':   ['Form 4 Resin Tank'],
+  'Form 4B':  ['Form 4 Resin Tank'],
+  'Form 4L':  ['Form 4L Resin Tank'],
+  'Form 4BL': ['Form 4L Resin Tank'],
+};
+const FORMLABS_PRINTER_MODELS = Object.keys(FORMLABS_TANK_OPTIONS);
+function populateFlTankOptions(model, selectedTank) {
+  const sel = document.getElementById('flTankType');
+  const options = FORMLABS_TANK_OPTIONS[model] || [];
+  sel.innerHTML = '<option value="">— not set —</option>' +
+    options.map(t => `<option value="${esc(t)}"${t===selectedTank?' selected':''}>${esc(t)}</option>`).join('');
+}
 function _flParseUrl(url) {
   try {
     const u = new URL(url);
     const serial = u.hostname || u.pathname.replace(/^\/+/, '');
-    return { serial, clientId: u.searchParams.get('client_id')||'', clientSecret: u.searchParams.get('client_secret')||'' };
-  } catch { return { serial:'', clientId:'', clientSecret:'' }; }
+    return {
+      serial, clientId: u.searchParams.get('client_id')||'', clientSecret: u.searchParams.get('client_secret')||'',
+      printerModel: u.searchParams.get('printer_model')||'', tankType: u.searchParams.get('tank_type')||''
+    };
+  } catch { return { serial:'', clientId:'', clientSecret:'', printerModel:'', tankType:'' }; }
 }
-function _flBuildUrl(serial, clientId, clientSecret) {
-  return `formlabs://${encodeURIComponent(serial)}?client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+function _flBuildUrl(serial, clientId, clientSecret, printerModel, tankType) {
+  let url = `formlabs://${encodeURIComponent(serial)}?client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  if (printerModel) url += `&printer_model=${encodeURIComponent(printerModel)}`;
+  if (tankType) url += `&tank_type=${encodeURIComponent(tankType)}`;
+  return url;
 }
 let editingFormlabsIdx = null;
 function openFormlabsModal(idx) {
   editingFormlabsIdx = (typeof idx === 'number') ? idx : null;
   const hint = document.getElementById('flSecretHint');
   const secretEl = document.getElementById('flClientSecret');
+  const modelSel = document.getElementById('flPrinterModel');
+  if (!modelSel.options.length || modelSel.options.length === 1) {
+    modelSel.innerHTML = '<option value="">— not set —</option>' +
+      FORMLABS_PRINTER_MODELS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  }
   if (editingFormlabsIdx !== null) {
     const p = settings.resinPrinters[editingFormlabsIdx];
     const parsed = _flParseUrl(p.moonrakerUrl);
@@ -1294,6 +1338,8 @@ function openFormlabsModal(idx) {
     document.getElementById('flClientId').value = parsed.clientId;
     secretEl.value = ''; secretEl.placeholder = '••••••••';
     document.getElementById('flWatts').value = p.wattage||'';
+    modelSel.value = parsed.printerModel;
+    populateFlTankOptions(parsed.printerModel, parsed.tankType);
     document.getElementById('flSaveBtn').textContent = 'Save Changes';
     hint.style.display = '';
   } else {
@@ -1303,6 +1349,8 @@ function openFormlabsModal(idx) {
     document.getElementById('flClientId').value = '';
     secretEl.value = ''; secretEl.placeholder = '';
     document.getElementById('flWatts').value = '';
+    modelSel.value = '';
+    populateFlTankOptions('', '');
     document.getElementById('flSaveBtn').textContent = 'Add Printer';
     hint.style.display = 'none';
   }
@@ -1315,13 +1363,15 @@ function saveFormlabsPrinter() {
   const clientId = document.getElementById('flClientId').value.trim();
   const secretInput = document.getElementById('flClientSecret').value.trim();
   const watts = parseFloat(document.getElementById('flWatts').value) || 0;
+  const printerModel = document.getElementById('flPrinterModel').value;
+  const tankType = document.getElementById('flTankType').value;
   if (!name || !serial || !clientId) return;
   let clientSecret = secretInput;
   if (editingFormlabsIdx !== null && !secretInput) {
     clientSecret = _flParseUrl(settings.resinPrinters[editingFormlabsIdx].moonrakerUrl).clientSecret;
   }
   if (!clientSecret) return;
-  const url = _flBuildUrl(serial, clientId, clientSecret);
+  const url = _flBuildUrl(serial, clientId, clientSecret, printerModel, tankType);
   if (editingFormlabsIdx !== null) {
     const p = settings.resinPrinters[editingFormlabsIdx];
     p.name = name; p.moonrakerUrl = url; p.wattage = watts;
